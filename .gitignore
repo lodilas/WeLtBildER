@@ -1,5 +1,6 @@
 config.local.js
 config.js
+backups/
 .env
 .env.*
 !config.example.js
