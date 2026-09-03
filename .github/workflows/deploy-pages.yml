@@ -22,6 +22,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create public runtime configuration
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          required = ("SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY")
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit(f"Missing GitHub Actions secrets: {', '.join(missing)}")
+          config = {
+              "supabaseUrl": os.environ["SUPABASE_URL"].rstrip("/"),
+              "supabaseAnonKey": os.environ["SUPABASE_PUBLISHABLE_KEY"],
+              "storageBucket": "curriculum-assets",
+          }
+          with open("config.js", "w", encoding="utf-8") as handle:
+              handle.write("window.LEHRPLAN_REVIEW_CONFIG = ")
+              json.dump(config, handle, ensure_ascii=False, indent=2)
+              handle.write(";\n")
+          PY
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
