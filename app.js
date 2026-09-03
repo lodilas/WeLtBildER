@@ -181,6 +181,22 @@ async function currentTextVersionId(documentId) {
   return document.current_text_version_id;
 }
 
+async function loadActiveOccurrences(documentId, versionId) {
+  // PostgREST limits one response. Ignoring historical stale rows and paging
+  // keeps long documents visible even after several NER reruns.
+  const rows = [];
+  const pageSize = 1000;
+  for (let start = 0; ; start += pageSize) {
+    const result = await requireClient().from("entity_occurrences").select("*")
+      .eq("document_id", documentId).eq("text_version_id", versionId)
+      .neq("status", "stale").order("char_start").order("id")
+      .range(start, start + pageSize - 1);
+    const page = unwrap(result) || [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
 function normalizeLexiconSurface(value) {
   return String(value || "").replace(/\s+/gu, " ").trim().toLocaleLowerCase("de-DE");
 }
@@ -347,8 +363,7 @@ function reanchorOccurrence(oldText, newText, occurrence) {
 
 async function copyReanchoredOccurrences(documentId, oldVersionId, newVersionId, oldText, newText, userId) {
   const client = requireClient();
-  const previous = unwrap(await client.from("entity_occurrences").select("*")
-    .eq("document_id", documentId).eq("text_version_id", oldVersionId));
+  const previous = await loadActiveOccurrences(documentId, oldVersionId);
   const copied = [];
   let invalidated = 0;
   let moved = 0;
@@ -386,7 +401,7 @@ async function runBrowserLexiconNer(documentId) {
   const versionId = await currentTextVersionId(documentId);
   const textRow = unwrap(await client.from("text_versions").select("content").eq("id", versionId).single());
   const text = textRow.content;
-  const existing = unwrap(await client.from("entity_occurrences").select("*").eq("document_id", documentId).eq("text_version_id", versionId));
+  const existing = await loadActiveOccurrences(documentId, versionId);
   const invalid = existing.filter((entry) => text.slice(entry.char_start, entry.char_end) !== entry.surface_form);
   const replaceable = existing.filter((entry) => entry.status === "pending" && entry.source !== "manual");
   const invalidIds = new Set(invalid.map((entry) => entry.id));
@@ -463,7 +478,7 @@ async function apiJson(url, options = {}) {
       if (!versionId) return { ...document, section_count: 0, occurrence_count: 0, pending_count: 0 };
       const [sections, occurrences, pending] = await Promise.all([
         client.from("text_sections").select("id", { count: "exact", head: true }).eq("document_id", document.id).eq("text_version_id", versionId),
-        client.from("entity_occurrences").select("id", { count: "exact", head: true }).eq("document_id", document.id).eq("text_version_id", versionId),
+        client.from("entity_occurrences").select("id", { count: "exact", head: true }).eq("document_id", document.id).eq("text_version_id", versionId).neq("status", "stale"),
         client.from("entity_occurrences").select("id", { count: "exact", head: true }).eq("document_id", document.id).eq("text_version_id", versionId).eq("status", "pending"),
       ]);
       if (sections.error) throw sections.error;
@@ -481,7 +496,7 @@ async function apiJson(url, options = {}) {
   }
   if (segments[1] === "entities" && segments.length === 3 && method === "GET") {
     const versionId = await currentTextVersionId(segments[2]);
-    return unwrap(await client.from("entity_occurrences").select("*").eq("document_id", segments[2]).eq("text_version_id", versionId).order("char_start"));
+    return loadActiveOccurrences(segments[2], versionId);
   }
   if (segments[1] === "sections" && segments.length === 3 && method === "GET") {
     const versionId = await currentTextVersionId(segments[2]);
