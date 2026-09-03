@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lehrplan Review</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section id="auth-gate" class="auth-gate">
+      <form id="auth-form" class="auth-card">
+        <div class="brand-mark">LR</div>
+        <h1>Lehrplan Review</h1>
+        <p>Bitte mit dem für das Review freigeschalteten Konto anmelden.</p>
+        <label>E-Mail <input id="auth-email" type="email" autocomplete="email" required /></label>
+        <label>Passwort <input id="auth-password" type="password" autocomplete="current-password" required /></label>
+        <div class="actions compact">
+          <button type="submit">Anmelden</button>
+          <button id="sign-up" type="button" class="secondary">Konto anfordern</button>
+        </div>
+        <p id="auth-status" class="helper-text" aria-live="polite"></p>
+      </form>
+    </section>
+    <div id="app-shell" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">LR</div>
+        <div class="brand-copy">
+          <h1>Lehrplan Review</h1>
+          <p>OCR-Korrektur und Geo-NER</p>
+        </div>
+        <button id="toggle-sidebar" class="sidebar-toggle" type="button" aria-label="Dokumentenauswahl einklappen" title="Dokumentenauswahl einklappen">‹</button>
+      </div>
+      <div class="toolbar">
+        <button id="refresh-documents" type="button">Aktualisieren</button>
+      </div>
+      <div class="document-search">
+        <label for="document-search-input">Lehrpläne suchen</label>
+        <input
+          id="document-search-input"
+          type="search"
+          placeholder="z. B. BW Geschichte Gymnasium 10"
+          autocomplete="off"
+        />
+        <span id="document-search-count" aria-live="polite"></span>
+      </div>
+      <nav id="document-list" class="document-list" aria-label="Dokumente"></nav>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">10-Dokumente-Test</p>
+          <h2 id="document-title">Dokument laden</h2>
+        </div>
+        <div class="step-switch" role="tablist" aria-label="Workflow-Schritt">
+          <button id="step-text" class="active" type="button">1 Metadaten & OCR</button>
+          <button id="step-sections" type="button">2 Abschnitte</button>
+          <button id="step-ner" type="button">3 Geo-NER</button>
+        </div>
+        <div class="user-menu">
+          <span id="signed-in-user"></span>
+          <button id="sign-out" class="secondary" type="button">Abmelden</button>
+        </div>
+      </header>
+
+      <section id="text-panel" class="panel split-panel">
+        <div class="pdf-pane">
+          <div class="pane-header">
+            <span>Quelle</span>
+            <div class="header-actions">
+              <a id="source-link" href="#" target="_blank" rel="noreferrer">extern öffnen</a>
+              <button class="secondary pdf-pane-toggle" type="button" aria-label="PDF-Ansicht einklappen" title="PDF-Ansicht einklappen">‹</button>
+            </div>
+          </div>
+          <iframe id="pdf-viewer" title="PDF viewer"></iframe>
+        </div>
+        <div class="editor-pane">
+          <div class="pane-header">
+            <span>Metadatenprüfung und manuelle Textkorrektur</span>
+            <span id="text-status" class="status-pill">nicht gespeichert</span>
+          </div>
+          <form id="metadata-form" class="metadata-form">
+            <div class="metadata-form-header">
+              <div>
+                <strong>Metadaten prüfen</strong>
+                <small id="metadata-source">Quelle: —</small>
+              </div>
+              <div class="metadata-header-actions">
+                <button id="toggle-metadata" class="secondary" type="button">Bearbeiten</button>
+                <button id="save-metadata" class="secondary" type="submit">Metadaten speichern</button>
+              </div>
+            </div>
+            <p id="metadata-summary" class="metadata-summary">Noch nicht geprüft.</p>
+            <div class="metadata-body">
+              <label class="wide">
+                Titel
+                <input id="meta-title" type="text" />
+              </label>
+              <div class="metadata-grid">
+                <label>
+                  Bundesland
+                  <div id="meta-federal-state" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Veröffentlichungsjahr
+                  <div id="meta-publication-year" class="choice-picker" data-multiple="false"></div>
+                </label>
+                <label>
+                  Fach laut Dokument
+                  <div id="meta-subjects" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Fachkomplex
+                  <div id="meta-subject-complexes" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Schulformen
+                  <div id="meta-school-types" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Klassenstufen
+                  <div id="meta-grade-levels" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Leistungsniveau
+                  <div id="meta-performance-level" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Sprachen
+                  <div id="meta-languages" class="choice-picker" data-multiple="true"></div>
+                </label>
+                <label>
+                  Gültigkeit Beginn
+                  <div id="meta-validity-start" class="choice-picker" data-multiple="false"></div>
+                </label>
+                <label>
+                  Gültigkeit Ende
+                  <div id="meta-validity-end" class="choice-picker" data-multiple="false"></div>
+                </label>
+              </div>
+              <label class="wide">
+                Quellen-URL
+                <input id="meta-source-url" type="url" />
+              </label>
+              <details class="subject-lexicon-box">
+                <summary>Fachlexikon anzeigen</summary>
+                <div id="subject-lexicon-table" class="subject-lexicon-table"></div>
+              </details>
+            </div>
+          </form>
+          <div class="text-search" data-search-target="manual">
+            <input data-search-input type="search" placeholder="Im Text suchen" aria-label="Im manuellen Text suchen">
+            <span data-search-count>0 Treffer</span>
+            <button data-search-prev type="button" class="secondary" aria-label="Vorheriger Treffer">↑</button>
+            <button data-search-next type="button" class="secondary" aria-label="Nächster Treffer">↓</button>
+          </div>
+          <div class="editor-search-wrap">
+            <article id="manual-search-preview" class="manual-search-preview" aria-hidden="true"></article>
+            <textarea id="manual-editor" spellcheck="true"></textarea>
+          </div>
+          <div class="actions">
+            <button id="save-manual" type="button">Als manual.txt speichern</button>
+            <button id="run-ner" type="button">NER-Review öffnen</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="sections-panel" class="panel sections-panel hidden">
+        <div class="ner-header">
+          <div>
+            <p class="eyebrow">Abschnittsprüfung</p>
+            <h3 id="sections-summary">Noch keine Abschnitte geladen</h3>
+          </div>
+          <div class="header-actions">
+            <button id="capture-section" class="secondary" type="button">Textauswahl als Abschnitt</button>
+            <button id="whole-document-section" type="button">Ganzes Dokument als Abschnitt</button>
+          </div>
+        </div>
+        <div class="sections-layout">
+          <article class="pdf-pane section-pdf-pane">
+            <div class="pane-header">
+              <span>Original-PDF</span>
+              <div class="header-actions">
+                <a id="section-source-link" href="#" target="_blank" rel="noreferrer">Datei öffnen</a>
+                <button class="secondary pdf-pane-toggle" type="button" aria-label="PDF-Ansicht einklappen" title="PDF-Ansicht einklappen">‹</button>
+              </div>
+            </div>
+            <iframe id="section-pdf-viewer" title="Original-PDF zur Abschnittsprüfung"></iframe>
+          </article>
+          <div class="text-content-pane">
+            <div class="text-search" data-search-target="sections">
+              <input data-search-input type="search" placeholder="Im Text suchen" aria-label="Im Abschnittstext suchen">
+              <span data-search-count>0 Treffer</span>
+              <button data-search-prev type="button" class="secondary" aria-label="Vorheriger Treffer">↑</button>
+              <button data-search-next type="button" class="secondary" aria-label="Nächster Treffer">↓</button>
+            </div>
+            <article id="section-text" class="highlighted-text section-text"></article>
+          </div>
+          <aside class="section-pane">
+            <div class="pane-header">
+              <span>Abschnitte</span>
+              <span id="section-range" class="status-pill">keine Auswahl</span>
+            </div>
+            <div id="section-list" class="entity-list"></div>
+            <form id="section-form" class="entity-form">
+              <label>
+                Abschnittstitel
+                <input id="section-title" type="text" placeholder="z.B. Geschichte, Klassenstufe 7" />
+              </label>
+              <label>
+                Fach laut Dokument
+                <div id="section-subjects" class="choice-picker" data-multiple="true"></div>
+              </label>
+              <label>
+                Fachkomplex
+                <div id="section-subject-complexes" class="choice-picker" data-multiple="true"></div>
+              </label>
+              <label>
+                Schulformen
+                <div id="section-school-types" class="choice-picker" data-multiple="true"></div>
+              </label>
+              <label>
+                Klassenstufen
+                <div id="section-grade-levels" class="choice-picker" data-multiple="true"></div>
+              </label>
+              <label>
+                Leistungsniveau
+                <div id="section-performance-level" class="choice-picker" data-multiple="true"></div>
+              </label>
+              <label>
+                Notiz
+                <input id="section-note" type="text" />
+              </label>
+              <div class="actions compact">
+                <button id="save-section" type="submit">Abschnitt speichern</button>
+                <button id="delete-section" class="secondary" type="button">Abschnitt löschen</button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      </section>
+
+      <section id="ner-panel" class="panel ner-panel hidden">
+        <div class="ner-header">
+          <div>
+            <p class="eyebrow">NER Review</p>
+            <h3 id="ner-summary">Noch keine Entitäten geladen</h3>
+          </div>
+          <div class="header-actions">
+            <button id="accept-all" class="secondary" type="button">Alle offenen Vorschläge akzeptieren</button>
+            <button id="rerun-ner" type="button">NER neu ausführen</button>
+          </div>
+        </div>
+        <div class="ner-layout">
+          <div class="text-content-pane">
+            <div class="text-search" data-search-target="ner">
+              <input data-search-input type="search" placeholder="Im Text suchen" aria-label="Im NER-Text suchen">
+              <span data-search-count>0 Treffer</span>
+              <button data-search-prev type="button" class="secondary" aria-label="Vorheriger Treffer">↑</button>
+              <button data-search-next type="button" class="secondary" aria-label="Nächster Treffer">↓</button>
+            </div>
+            <article id="highlighted-text" class="highlighted-text"></article>
+          </div>
+          <aside class="entity-pane">
+            <section class="new-entity-box">
+              <div class="pane-header compact-header">
+                <span>Neue Entität</span>
+              </div>
+              <p class="helper-text">Textstelle links markieren, dann als neue geografische Entität übernehmen.</p>
+              <button id="capture-selection" class="secondary" type="button">Markierung übernehmen</button>
+              <form id="new-entity-form" class="entity-form hidden">
+                <label>
+                  Markierung
+                  <input id="new-entity-surface" type="text" readonly />
+                </label>
+                <label>
+                  Canonical
+                  <input id="new-entity-canonical" type="text" />
+                </label>
+                <label>
+                  Typ
+                  <select id="new-entity-type"></select>
+                </label>
+                <label>
+                  Notiz
+                  <input id="new-entity-note" type="text" placeholder="optional" />
+                </label>
+                <div class="actions compact">
+                  <button type="submit">Neue Entität speichern</button>
+                </div>
+              </form>
+            </section>
+            <div class="pane-header">
+              <span>Entitäten</span>
+              <select id="status-filter" aria-label="Statusfilter">
+                <option value="all">alle</option>
+                <option value="pending">offen</option>
+                <option value="accepted">akzeptiert</option>
+                <option value="rejected">verworfen</option>
+                <option value="changed">geändert</option>
+              </select>
+            </div>
+            <div id="entity-list" class="entity-list"></div>
+            <form id="entity-form" class="entity-form">
+              <label>
+                Surface
+                <input id="entity-surface" type="text" readonly />
+              </label>
+              <label>
+                Canonical
+                <input id="entity-canonical" type="text" />
+              </label>
+              <label>
+                Typ
+                <select id="entity-type"></select>
+              </label>
+              <label>
+                Notiz
+                <input id="entity-note" type="text" />
+              </label>
+              <div class="actions compact">
+                <button data-status="accepted" type="submit">Accept</button>
+                <button data-status="rejected" type="submit">Reject</button>
+                <button data-status="changed" type="submit">Save change</button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      </section>
+    </main>
+    </div>
+    <script src="./config.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
