@@ -39,6 +39,8 @@ Der Anon-Key ist für Browser-Clients vorgesehen. Sicherheit kommt aus Auth und 
 3. Nach Push auf `main` veröffentlicht [deploy-pages.yml](.github/workflows/deploy-pages.yml) die statischen Dateien.
 4. Die in Supabase konfigurierten Auth-Redirect-URLs um die GitHub-Pages-URL ergänzen.
 
-## 4. Späterer Worker
+## 4. Späterer OCR-/Cleaning-Worker
 
-Ein separater Docker-Python-Worker nutzt einen geheimen Service-Role-Key, liest Jobs aus einer späteren `processing_jobs`-Tabelle und schreibt neue Textversionen bzw. NER-Fundstellen. Er ist nicht Bestandteil dieses Piloten und läuft nicht auf GitHub Pages.
+Ein separater Docker-Python-Worker nutzt einen geheimen Service-Role-Key, liest Jobs aus einer späteren `processing_jobs`-Tabelle und schreibt neue OCR- und Cleaning-Textversionen. Er ist nicht Bestandteil dieses Piloten und läuft nicht auf GitHub Pages.
+
+Der regelbasierte Geo-NER benötigt keinen Worker: Die statische App gleicht den jeweils aktuellen Manual-Text im Browser mit dem bestätigten Supabase-Geo-Lexikon ab. Eine optionale KI-Komponente kann später ausschließlich Kandidaten für die Erweiterung dieses Lexikons erzeugen.

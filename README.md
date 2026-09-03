@@ -1,17 +1,18 @@
 # Lehrplan Review – Supabase/GitHub-Pages-Pilot
 
-Diese Anwendung ist die getrennte Cloud-Testversion des lokalen Lehrplan-Review-Prototyps. Sie enthält bewusst **keinen** PDF-Upload und **keinen** OCR-/NER-Worker. Sie prüft bereits vorhandene Dokumente und Textversionen in drei Schritten:
+Diese Anwendung ist die getrennte Cloud-Testversion des lokalen Lehrplan-Review-Prototyps. Sie enthält bewusst **keinen** PDF-Upload und **keinen** OCR-/Cleaning-Worker. Sie prüft bereits vorhandene Dokumente und Textversionen in drei Schritten:
 
 1. Metadaten und OCR-/Manual-Text;
 2. fach-, klassen- und schulformspezifische Textabschnitte;
-3. vorhandene Geo-NER-Vorschläge und manuelle Entitäten.
+3. Geo-NER per direktem Abgleich des aktuellen Manual-Texts mit dem gemeinsamen Geo-Lexikon sowie manuelle Entitäten.
 
 ## Architektur
 
 - GitHub Pages liefert `index.html`, `styles.css`, `app.js` und `config.js` aus.
 - Supabase liefert Auth, PostgreSQL und den privaten Storage-Bucket `curriculum-assets`.
 - Die App nutzt ausschließlich den öffentlichen Supabase-Anon-Key. Dieser darf im Browser sichtbar sein; Schutz entsteht durch Row-Level Security.
-- Ein künftiger OCR-/NER-Worker läuft getrennt und schreibt nur neue Textversionen bzw. Fundstellen in dieselben Tabellen.
+- Der Geo-NER läuft direkt im Browser gegen `geo_lexicon`; dafür ist kein Worker erforderlich.
+- Ein künftiger OCR-/Cleaning-Worker läuft getrennt und schreibt neue Textversionen in dieselben Tabellen. Eine optionale KI-Auswertung kann später nur Vorschläge zur Erweiterung des Geo-Lexikons erzeugen.
 
 ## Einrichten
 
