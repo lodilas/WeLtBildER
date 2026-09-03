@@ -1371,8 +1371,18 @@ function nextPendingEntityId(currentId) {
 
 function scrollSelectedEntityIntoView(behavior = "smooth") {
   if (state.selectedEntityId === null) return;
-  scrollWithin(elements.highlightedText, document.querySelector(`.mention[data-id="${state.selectedEntityId}"]`), "center", behavior);
+  const mention = document.querySelector(`.mention[data-id="${state.selectedEntityId}"]`);
+  // Native scrolling handles an inline <mark> that wraps across several text
+  // lines; the container adjustment below then keeps it centred in the pane.
+  mention?.scrollIntoView({ block: "center", inline: "nearest", behavior });
+  scrollWithin(elements.highlightedText, mention, "center", behavior);
   scrollWithin(elements.entityList, elements.entityList.querySelector(`.entity-item[data-id="${state.selectedEntityId}"]`), "nearest", behavior);
+}
+
+function scheduleSelectedEntityScroll(behavior = "auto") {
+  // The highlights are rebuilt on selection. Waiting for two animation frames
+  // ensures their final line positions are available before measuring them.
+  requestAnimationFrame(() => requestAnimationFrame(() => scrollSelectedEntityIntoView(behavior)));
 }
 
 function scrollWithin(container, target, alignment = "center", behavior = "smooth") {
@@ -1390,7 +1400,7 @@ function selectEntity(id) {
   state.selectedEntityId = id;
   renderHighlights();
   renderEntityList();
-  requestAnimationFrame(scrollSelectedEntityIntoView);
+  scheduleSelectedEntityScroll("auto");
 }
 
 function selectedEntity() {
@@ -1438,7 +1448,7 @@ async function saveEntity(event) {
   renderHighlights();
   renderEntityList();
   if (shouldAdvance && state.selectedEntityId !== null) {
-    requestAnimationFrame(() => scrollSelectedEntityIntoView("auto"));
+    scheduleSelectedEntityScroll("auto");
   } else if (shouldAdvance) {
     elements.nerSummary.textContent = "Alle Vorschläge in diesem Dokument bearbeitet";
   }
