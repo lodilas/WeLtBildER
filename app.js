@@ -19,6 +19,8 @@ const state = {
   entityTypes: [],
   metadataOptions: {},
   subjectLexicon: [],
+  canonicalOptions: null,
+  selectedCanonicalOption: null,
   selectedEntityId: null,
   selectedSectionId: null,
   pendingSelection: null,
@@ -81,6 +83,8 @@ const elements = {
   newEntityForm: document.querySelector("#new-entity-form"),
   newEntitySurface: document.querySelector("#new-entity-surface"),
   newEntityCanonical: document.querySelector("#new-entity-canonical"),
+  newEntityCanonicalHelp: document.querySelector("#new-entity-canonical-help"),
+  newEntityCanonicalSuggestions: document.querySelector("#new-entity-canonical-suggestions"),
   newEntityType: document.querySelector("#new-entity-type"),
   newEntityNote: document.querySelector("#new-entity-note"),
   statusFilter: document.querySelector("#status-filter"),
@@ -227,6 +231,100 @@ async function loadConfirmedGeoLexicon() {
     if (key && !unique.has(key)) unique.set(key, row);
   });
   return [...unique.values()];
+}
+
+function canonicalOptionKey(option) {
+  return `${normalizeLexiconSurface(option.canonical_entity)}\u0000${option.entity_type}`;
+}
+
+async function loadCanonicalOptions() {
+  // A canonical form can have many accepted surface forms. Keeping those
+  // aliases here means that typing "röm" can safely suggest the canonical
+  // "Imperium Romanum", even though the canonical label itself differs.
+  const lexicon = await loadConfirmedGeoLexicon();
+  const options = new Map();
+  lexicon.forEach((entry) => {
+    const canonical = String(entry.canonical_entity || "").trim();
+    if (!canonical) return;
+    const candidate = { canonical_entity: canonical, entity_type: entry.entity_type, aliases: new Set() };
+    const key = canonicalOptionKey(candidate);
+    if (!options.has(key)) options.set(key, candidate);
+    const option = options.get(key);
+    option.aliases.add(canonical);
+    if (entry.surface_form) option.aliases.add(entry.surface_form.trim());
+  });
+  return [...options.values()].sort((left, right) => left.canonical_entity.localeCompare(right.canonical_entity, "de-DE"));
+}
+
+async function ensureCanonicalOptions() {
+  if (!state.canonicalOptions) state.canonicalOptions = await loadCanonicalOptions();
+  return state.canonicalOptions;
+}
+
+function canonicalMatches(query) {
+  const normalizedQuery = normalizeLexiconSurface(query);
+  if (!normalizedQuery || !state.canonicalOptions) return [];
+  return state.canonicalOptions.filter((option) =>
+    [...option.aliases].some((alias) => normalizeLexiconSurface(alias).includes(normalizedQuery)),
+  ).slice(0, 12);
+}
+
+function canonicalAliasForMatch(option, query) {
+  const normalizedQuery = normalizeLexiconSurface(query);
+  return [...option.aliases].find((alias) => normalizeLexiconSurface(alias).includes(normalizedQuery)) || option.canonical_entity;
+}
+
+function selectCanonicalOption(option) {
+  state.selectedCanonicalOption = option;
+  elements.newEntityCanonical.value = option.canonical_entity;
+  elements.newEntityType.value = option.entity_type;
+  elements.newEntityCanonicalSuggestions.replaceChildren();
+  elements.newEntityCanonicalSuggestions.classList.add("hidden");
+  elements.newEntityCanonicalHelp.textContent = "Bestehende kanonische Form aus dem Geo-Lexikon ausgewählt.";
+}
+
+function renderCanonicalSuggestions() {
+  const query = elements.newEntityCanonical.value.trim();
+  const container = elements.newEntityCanonicalSuggestions;
+  container.replaceChildren();
+  if (!query) {
+    state.selectedCanonicalOption = null;
+    container.classList.add("hidden");
+    elements.newEntityCanonicalHelp.textContent = "Mit einem bestehenden Namen suchen. Eine freie Eingabe ist nur möglich, wenn kein Vorschlag passt.";
+    return;
+  }
+  const matches = canonicalMatches(query);
+  const exact = state.canonicalOptions?.find((option) => normalizeLexiconSurface(option.canonical_entity) === normalizeLexiconSurface(query));
+  if (exact) {
+    state.selectedCanonicalOption = exact;
+    elements.newEntityType.value = exact.entity_type;
+    container.classList.add("hidden");
+    elements.newEntityCanonicalHelp.textContent = "Bestehende kanonische Form aus dem Geo-Lexikon erkannt.";
+    return;
+  }
+  state.selectedCanonicalOption = null;
+  if (!matches.length) {
+    container.classList.add("hidden");
+    elements.newEntityCanonicalHelp.textContent = "Kein passender kanonischer Name im geprüften Geo-Lexikon. Diese neue Form kann frei gespeichert werden.";
+    return;
+  }
+  elements.newEntityCanonicalHelp.textContent = "Passende kanonische Form auswählen. Solange Vorschläge vorliegen, ist keine freie Eingabe möglich.";
+  matches.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "canonical-suggestion";
+    button.setAttribute("role", "option");
+    const alias = canonicalAliasForMatch(option, query);
+    button.innerHTML = `<strong>${escapeHtml(option.canonical_entity)}</strong><small>${escapeHtml(option.entity_type)} · passend zu: ${escapeHtml(alias)}</small>`;
+    button.addEventListener("click", () => selectCanonicalOption(option));
+    container.append(button);
+  });
+  container.classList.remove("hidden");
+}
+
+async function updateCanonicalSuggestions() {
+  await ensureCanonicalOptions();
+  renderCanonicalSuggestions();
 }
 
 function findLexiconMentions(text, lexicon, protectedSpans = []) {
@@ -1318,27 +1416,34 @@ function selectionOffsetsInHighlightedText() {
 
 function resetNewEntityForm() {
   state.pendingSelection = null;
+  state.selectedCanonicalOption = null;
   elements.newEntityForm.classList.add("hidden");
   elements.newEntitySurface.value = "";
   elements.newEntityCanonical.value = "";
+  elements.newEntityCanonicalSuggestions.replaceChildren();
+  elements.newEntityCanonicalSuggestions.classList.add("hidden");
+  elements.newEntityCanonicalHelp.textContent = "Mit einem bestehenden Namen suchen. Eine freie Eingabe ist nur möglich, wenn kein Vorschlag passt.";
   elements.newEntityNote.value = "";
   if (state.entityTypes.length) {
     elements.newEntityType.value = "region";
   }
 }
 
-function captureSelectionAsNewEntity() {
+async function captureSelectionAsNewEntity() {
   const offsets = selectionOffsetsInHighlightedText();
   if (!offsets) {
     alert("Bitte zuerst eine Textstelle im markierten Textbereich auswählen.");
     return;
   }
   state.pendingSelection = offsets;
+  state.selectedCanonicalOption = null;
   elements.newEntitySurface.value = offsets.surface;
-  elements.newEntityCanonical.value = offsets.surface;
+  elements.newEntityCanonical.value = "";
   elements.newEntityType.value = "region";
   elements.newEntityNote.value = "";
   elements.newEntityForm.classList.remove("hidden");
+  await updateCanonicalSuggestions();
+  elements.newEntityCanonical.focus();
 }
 
 function renderEntityList() {
@@ -1478,17 +1583,35 @@ async function acceptAllPendingEntities() {
 async function saveNewEntity(event) {
   event.preventDefault();
   if (!state.current || !state.pendingSelection) return;
+  await ensureCanonicalOptions();
+  const canonical = elements.newEntityCanonical.value.trim();
+  if (!canonical) {
+    elements.newEntityCanonicalHelp.textContent = "Bitte einen vereinheitlichten Namen eingeben oder auswählen.";
+    elements.newEntityCanonical.focus();
+    return;
+  }
+  const exact = state.canonicalOptions.find((option) => normalizeLexiconSurface(option.canonical_entity) === normalizeLexiconSurface(canonical));
+  const matches = canonicalMatches(canonical);
+  if (exact) selectCanonicalOption(exact);
+  else if (matches.length) {
+    renderCanonicalSuggestions();
+    elements.newEntityCanonical.focus();
+    return;
+  }
   const created = await apiJson(`/api/entities/${encodeURIComponent(state.current.id)}/create`, {
     method: "POST",
     body: JSON.stringify({
       char_start: state.pendingSelection.char_start,
       char_end: state.pendingSelection.char_end,
-      canonical_entity: elements.newEntityCanonical.value,
+      canonical_entity: canonical,
       entity_type: elements.newEntityType.value,
       note: elements.newEntityNote.value,
     }),
   });
   state.entities = await apiJson(`/api/entities/${encodeURIComponent(state.current.id)}`);
+  // The server also adds the new surface form to the shared lexicon. Reload it
+  // before the next manual addition so that it immediately becomes selectable.
+  state.canonicalOptions = null;
   state.selectedEntityId = created.id;
   resetNewEntityForm();
   renderHighlights();
@@ -1657,8 +1780,10 @@ elements.rerunNer.addEventListener("click", () => runNer().catch(showNerError));
 elements.acceptAll.addEventListener("click", () => acceptAllPendingEntities().catch(showNerError));
 elements.statusFilter.addEventListener("change", renderEntityList);
 elements.entityForm.addEventListener("submit", (event) => saveEntity(event).catch(showNerError));
-elements.captureSelection.addEventListener("click", captureSelectionAsNewEntity);
+elements.captureSelection.addEventListener("click", () => captureSelectionAsNewEntity().catch(showNerError));
 elements.newEntityForm.addEventListener("submit", saveNewEntity);
+elements.newEntityCanonical.addEventListener("input", () => updateCanonicalSuggestions().catch(showNerError));
+elements.newEntityCanonical.addEventListener("focus", () => updateCanonicalSuggestions().catch(showNerError));
 elements.captureSection.addEventListener("click", captureSelectionAsSection);
 elements.sectionForm.addEventListener("submit", saveSection);
 elements.wholeDocumentSection.addEventListener("click", createWholeDocumentSection);

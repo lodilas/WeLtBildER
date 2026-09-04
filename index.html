@@ -275,9 +275,11 @@
                   <input id="new-entity-surface" type="text" readonly />
                 </label>
                 <label>
-                  Canonical
-                  <input id="new-entity-canonical" type="text" />
+                  Vereinheitlichter Name
+                  <input id="new-entity-canonical" type="search" autocomplete="off" aria-describedby="new-entity-canonical-help" />
                 </label>
+                <p id="new-entity-canonical-help" class="canonical-help">Mit einem bestehenden Namen suchen. Eine freie Eingabe ist nur möglich, wenn kein Vorschlag passt.</p>
+                <div id="new-entity-canonical-suggestions" class="canonical-suggestions hidden" role="listbox" aria-label="Vorschläge für vereinheitlichte Namen"></div>
                 <label>
                   Typ
                   <select id="new-entity-type"></select>

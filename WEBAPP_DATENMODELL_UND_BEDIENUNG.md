@@ -195,8 +195,9 @@ Wenn die App eine Entität nicht erkannt hat:
 
 1. Die betreffende Textstelle markieren.
 2. **„Markierung übernehmen“** wählen.
-3. Den vereinheitlichten Namen und einen Typ aus dem Auswahlmenü wählen.
-4. Speichern.
+3. Im Feld **„Vereinheitlichter Name“** zunächst nach einer vorhandenen kanonischen Form suchen. Vorschläge werden bereits während der Eingabe angezeigt. So führt zum Beispiel die Suche nach `röm` zu der im Lexikon hinterlegten kanonischen Form `Imperium Romanum`.
+4. Wenn Vorschläge erscheinen, einen davon auswählen; Typ und kanonische Form werden übernommen. Erst wenn keine passende Form existiert, darf ein neuer kanonischer Name frei eingegeben werden.
+5. Speichern.
 
 Die konkrete Fundstelle wird direkt als `accepted` gespeichert. Zugleich wird die Schreibweise in das gemeinsame Geo-Lexikon übernommen und als geprüft markiert. Künftige NER-Läufe können diese Schreibweise damit auch in anderen Dokumenten erkennen.
 
