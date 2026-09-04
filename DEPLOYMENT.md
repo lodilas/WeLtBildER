@@ -3,10 +3,18 @@
 ## 1. Supabase
 
 1. Neues Projekt anlegen und E-Mail-Anmeldung aktivieren.
-2. `supabase/migrations/001_review_app.sql` ausführen.
+2. `supabase/migrations/001_review_app.sql` und danach `supabase/migrations/002_account_approval_and_roles.sql` ausführen.
 3. In Storage den privaten Bucket `curriculum-assets` verwenden.
 4. Vor dem Pilotstart nur die zehn vorhandenen Testdokumente samt ihren bereits erzeugten Textversionen und NER-Fundstellen mit `scripts/import_existing_test_pilot.py` importieren. Das Skript fragt den Service-Role-Key verdeckt ab und speichert ihn nicht.
 5. Testkonto anlegen und RLS mit diesem Konto prüfen.
+
+### Konto-Freigabe und Rollen
+
+Nach Migration 002 bleiben die schon vorhandenen Pilotkonten freigeschaltet. Prüfe in `reviewer_profiles`, dass mindestens die Projektleitung die Rolle `admin` besitzt; falls nötig, kann die Rolle dort einmalig im Supabase Table Editor auf `admin` gesetzt werden. Neue Konten starten als `pending` und können keine Dokumente lesen.
+
+In der Web-App sehen Reviewer und Admins die **Benutzerverwaltung**. Ein Reviewer kann ein wartendes Konto als **Nur lesen** oder **Reviewer** freischalten. Nur ein Admin kann eine Adminrolle vergeben. Jede neue Kontoanfrage erzeugt eine In-App-Benachrichtigung für alle bestehenden Admins.
+
+Die Benachrichtigung erscheint beim nächsten Öffnen der App als Zahl am Knopf **Benutzerverwaltung**. Eine E-Mail-Benachrichtigung ist bewusst nicht Teil der statischen GitHub-Pages-App, weil sie einen separaten Maildienst und einen geheimen Server-Schlüssel voraussetzt.
 
 ### Erforderliche Datenreihenfolge
 

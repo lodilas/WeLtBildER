@@ -16,7 +16,7 @@ Diese Anwendung ist die getrennte Cloud-Testversion des lokalen Lehrplan-Review-
 
 ## Sicherheitsgrenzen des Piloten
 
-Die RLS-Policies erlauben allen angemeldeten Pilot-Rezensierenden Zugriff. Vor dem Import des vollständigen Korpus müssen sie durch projekt- bzw. mitgliedschaftsbezogene Policies ersetzt werden. Der Service-Role-Key gehört ausschließlich in spätere Admin-Import- oder Worker-Umgebungen, niemals in GitHub Pages, `config.js` oder Browser-Code.
+Neue Registrierungen erhalten zunächst keinen Datenzugriff. Sie müssen in der Benutzerverwaltung durch einen Reviewer oder Admin freigeschaltet werden. Reviewer können die Rollen **Nur lesen** und **Reviewer** vergeben; nur Admins dürfen weitere Admins ernennen. Bei jeder Kontoanfrage erhalten alle Admins eine In-App-Benachrichtigung. Der Service-Role-Key gehört ausschließlich in spätere Admin-Import- oder Worker-Umgebungen, niemals in GitHub Pages, `config.js` oder Browser-Code.
 
 Weitere Details stehen in [DEPLOYMENT.md](DEPLOYMENT.md).
 

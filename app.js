@@ -21,6 +21,8 @@ const state = {
   subjectLexicon: [],
   canonicalOptions: null,
   selectedCanonicalOption: null,
+  profile: null,
+  accountRequests: [],
   selectedEntityId: null,
   selectedSectionId: null,
   pendingSelection: null,
@@ -114,6 +116,11 @@ const elements = {
   signUp: document.querySelector("#sign-up"),
   signOut: document.querySelector("#sign-out"),
   signedInUser: document.querySelector("#signed-in-user"),
+  manageAccounts: document.querySelector("#manage-accounts"),
+  accountDialog: document.querySelector("#account-dialog"),
+  closeAccountDialog: document.querySelector("#close-account-dialog"),
+  accountDialogStatus: document.querySelector("#account-dialog-status"),
+  accountList: document.querySelector("#account-list"),
 };
 
 function requireClient() {
@@ -172,6 +179,132 @@ async function awaitUserId() {
   const { data, error } = await requireClient().auth.getUser();
   if (error || !data.user) throw new Error("Sitzung abgelaufen. Bitte erneut anmelden.");
   return data.user.id;
+}
+
+function roleLabel(role) {
+  return ({ admin: "Admin", reviewer: "Reviewer", viewer: "Nur lesen" })[role] || role;
+}
+
+function isAccountManager() {
+  return ["admin", "reviewer"].includes(state.profile?.role) && state.profile?.approval_status === "approved";
+}
+
+async function loadCurrentProfile(userId) {
+  return unwrap(await requireClient().from("reviewer_profiles").select("*").eq("id", userId).single());
+}
+
+async function refreshAccountNotificationCount() {
+  if (state.profile?.role !== "admin" || state.profile?.approval_status !== "approved") return 0;
+  const result = await requireClient().from("admin_notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
+  if (result.error) throw result.error;
+  return result.count || 0;
+}
+
+function updateAccountControls(notificationCount = 0) {
+  const canManage = isAccountManager();
+  elements.manageAccounts.classList.toggle("hidden", !canManage);
+  if (canManage) {
+    const suffix = state.profile?.role === "admin" && notificationCount ? ` (${notificationCount})` : "";
+    elements.manageAccounts.textContent = `Benutzerverwaltung${suffix}`;
+  }
+}
+
+function applyReviewPermissions() {
+  const canEdit = isAccountManager();
+  elements.editor.readOnly = !canEdit;
+  const controls = [
+    elements.saveManual, elements.runNer, elements.rerunNer, elements.acceptAll,
+    elements.captureSelection, elements.captureSection, elements.wholeDocumentSection,
+    elements.deleteSection,
+    ...elements.metadataForm.querySelectorAll("button, input, select"),
+    ...elements.entityForm.querySelectorAll("button, input, select"),
+    ...elements.newEntityForm.querySelectorAll("button, input, select"),
+    ...elements.sectionForm.querySelectorAll("button, input, select"),
+  ];
+  controls.forEach((control) => { control.disabled = !canEdit; });
+  document.body.classList.toggle("viewer-mode", !canEdit);
+}
+
+async function loadAccountRequests() {
+  if (!isAccountManager()) return;
+  const rows = unwrap(await requireClient().from("reviewer_profiles").select("id, display_name, email, role, approval_status, created_at, approved_at").order("created_at", { ascending: false }));
+  state.accountRequests = rows;
+  renderAccountRequests();
+}
+
+function accountStatusLabel(status) {
+  return ({ pending: "wartet auf Freigabe", approved: "freigeschaltet", rejected: "abgelehnt" })[status] || status;
+}
+
+function renderAccountRequests() {
+  elements.accountList.replaceChildren();
+  const requests = [...state.accountRequests].sort((left, right) => {
+    const statusOrder = { pending: 0, rejected: 1, approved: 2 };
+    return (statusOrder[left.approval_status] ?? 9) - (statusOrder[right.approval_status] ?? 9);
+  });
+  if (!requests.length) {
+    elements.accountDialogStatus.textContent = "Keine Konten gefunden.";
+    return;
+  }
+  const pending = requests.filter((profile) => profile.approval_status === "pending").length;
+  elements.accountDialogStatus.textContent = pending ? `${pending} Kontoanfrage(n) warten auf eine Entscheidung.` : "Keine offenen Kontoanfragen.";
+  requests.forEach((profile) => {
+    const card = document.createElement("section");
+    card.className = `account-card ${profile.approval_status}`;
+    const heading = document.createElement("strong");
+    heading.textContent = profile.display_name || "Ohne Anzeigename";
+    const details = document.createElement("small");
+    details.textContent = `${profile.email || "keine E-Mail-Adresse hinterlegt"} · ${accountStatusLabel(profile.approval_status)} · derzeit: ${roleLabel(profile.role)} · beantragt: ${new Date(profile.created_at).toLocaleDateString("de-DE")}`;
+    card.append(heading, details);
+    if (profile.id === state.profile?.id) {
+      const self = document.createElement("small");
+      self.textContent = "Eigenes Konto – Änderungen durch eine andere berechtigte Person erforderlich.";
+      card.append(self);
+    } else if (!(state.profile?.role === "reviewer" && profile.role === "admin")) {
+      const controls = document.createElement("div");
+      controls.className = "account-actions";
+      const roleSelect = document.createElement("select");
+      const roles = state.profile?.role === "admin" ? ["viewer", "reviewer", "admin"] : ["viewer", "reviewer"];
+      roles.forEach((role) => {
+        const option = document.createElement("option");
+        option.value = role;
+        option.textContent = roleLabel(role);
+        option.selected = role === profile.role;
+        roleSelect.append(option);
+      });
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.textContent = profile.approval_status === "approved" ? "Rolle speichern" : "Freischalten";
+      approve.addEventListener("click", () => reviewAccount(profile.id, "approve", roleSelect.value).catch(showAccountError));
+      controls.append(roleSelect, approve);
+      if (profile.approval_status === "pending") {
+        const reject = document.createElement("button");
+        reject.type = "button";
+        reject.className = "secondary";
+        reject.textContent = "Ablehnen";
+        reject.addEventListener("click", () => reviewAccount(profile.id, "reject", roleSelect.value).catch(showAccountError));
+        controls.append(reject);
+      }
+      card.append(controls);
+    }
+    elements.accountList.append(card);
+  });
+}
+
+async function reviewAccount(profileId, decision, role) {
+  const saved = unwrap(await requireClient().rpc("review_account_request", {
+    target_profile_id: profileId,
+    decision,
+    assigned_role: role,
+  }));
+  state.accountRequests = state.accountRequests.map((profile) => profile.id === saved.id ? saved : profile);
+  await refreshAccountNotificationCount().then(updateAccountControls);
+  renderAccountRequests();
+}
+
+function showAccountError(error) {
+  console.error(error);
+  elements.accountDialogStatus.textContent = `Änderung nicht gespeichert: ${error.message || "Unbekannter Fehler"}`;
 }
 
 async function currentDocument(id) {
@@ -1818,22 +1951,33 @@ setSidebarCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
 setPdfCollapsed(localStorage.getItem("pdf-collapsed") === "true");
 
 async function showAuthenticatedApp(session) {
-  elements.authGate.classList.add("hidden");
-  elements.appShell.classList.remove("hidden");
-  elements.signedInUser.textContent = session.user.email || "angemeldet";
   try {
+    state.profile = await loadCurrentProfile(session.user.id);
+    if (state.profile.approval_status !== "approved") {
+      const message = state.profile.approval_status === "rejected"
+        ? "Diese Kontoanfrage wurde nicht freigeschaltet. Bitte wenden Sie sich an die Projektleitung."
+        : "Ihre Kontoanfrage wurde gespeichert und wartet auf die Freigabe durch einen Reviewer oder Admin.";
+      showAuthGate(message);
+      return;
+    }
+    elements.authGate.classList.add("hidden");
+    elements.appShell.classList.remove("hidden");
+    elements.signedInUser.textContent = `${session.user.email || "angemeldet"} · ${roleLabel(state.profile.role)}`;
+    updateAccountControls(await refreshAccountNotificationCount());
+    applyReviewPermissions();
     await loadDocuments();
   } catch (error) {
-    elements.title.textContent = "Fehler beim Laden";
     console.error(error);
-    alert(`Daten konnten nicht geladen werden: ${error.message}`);
+    showAuthGate(`Konto konnte nicht freigeschaltet werden: ${error.message}`);
   }
 }
 
 function showAuthGate(message = "") {
+  state.profile = null;
   elements.appShell.classList.add("hidden");
   elements.authGate.classList.remove("hidden");
   elements.authStatus.textContent = message;
+  updateAccountControls();
 }
 
 elements.authForm.addEventListener("submit", async (event) => {
@@ -1857,7 +2001,7 @@ elements.signUp.addEventListener("click", async () => {
     if (!email || !password) throw new Error("Bitte E-Mail und Passwort eingeben.");
     const { error } = await requireClient().auth.signUp({ email, password });
     if (error) throw error;
-    elements.authStatus.textContent = "Konto angelegt. Bitte E-Mail-Bestätigung abwarten; im Pilotbetrieb können Admins Konten auch direkt einladen.";
+    elements.authStatus.textContent = "Kontoanfrage gespeichert. Nach der E-Mail-Bestätigung ist zusätzlich die Freigabe durch einen Reviewer oder Admin erforderlich.";
   } catch (error) {
     elements.authStatus.textContent = error.message;
   }
@@ -1868,11 +2012,21 @@ elements.signOut.addEventListener("click", async () => {
   await supabase.auth.signOut();
 });
 
+elements.manageAccounts.addEventListener("click", async () => {
+  try {
+    elements.accountDialog.showModal();
+    await loadAccountRequests();
+  } catch (error) {
+    showAccountError(error);
+  }
+});
+elements.closeAccountDialog.addEventListener("click", () => elements.accountDialog.close());
+
 if (!supabase) {
   showAuthGate("Bitte zuerst Supabase-URL und den öffentlichen Anon-Key in config.js eintragen.");
 } else {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) showAuthenticatedApp(session);
+  if (session) await showAuthenticatedApp(session);
   else showAuthGate();
   supabase.auth.onAuthStateChange((_event, nextSession) => {
     if (nextSession) showAuthenticatedApp(nextSession);

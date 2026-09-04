@@ -1056,3 +1056,27 @@ body.sidebar-collapsed .app-shell {
 .auth-card label { display: grid; gap: .35rem; font-weight: 600; }
 .auth-card input { padding: .6rem .7rem; border: 1px solid #94a3b8; border-radius: .4rem; }
 .user-menu { display: flex; align-items: center; gap: .6rem; margin-left: auto; font-size: .85rem; }
+
+.account-dialog {
+  width: min(48rem, calc(100vw - 2rem));
+  max-height: min(80vh, 48rem);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  padding: 1rem;
+  color: var(--ink);
+  background: #fffdf8;
+  box-shadow: 0 1rem 3rem rgb(15 23 42 / 25%);
+}
+
+.account-dialog::backdrop { background: rgb(15 23 42 / 45%); }
+.account-dialog-header { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
+.account-dialog-header h2, .account-dialog-header .eyebrow { margin: 0; }
+.account-list { display: grid; gap: 0.65rem; max-height: 58vh; overflow: auto; margin-top: 0.8rem; }
+.account-card { display: grid; gap: 0.3rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 0.5rem; background: white; }
+.account-card.pending { border-left: 4px solid #c27616; }
+.account-card.rejected { opacity: 0.7; }
+.account-card small { color: var(--muted); }
+.account-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; margin-top: 0.25rem; }
+.account-actions select { min-width: 9rem; }
+.viewer-mode .workspace textarea[readonly] { background: #f4f4f2; color: var(--ink); cursor: default; }
+.viewer-mode button:disabled, .viewer-mode input:disabled, .viewer-mode select:disabled { cursor: not-allowed; opacity: 0.58; }

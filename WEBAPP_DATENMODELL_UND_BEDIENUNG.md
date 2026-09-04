@@ -267,7 +267,13 @@ Hier wird festgehalten, welche prüfende Person wann etwas entschieden hat. Bei 
 
 ### `reviewer_profiles`: Benutzerinnen und Benutzer
 
-Zu jedem Supabase-Konto gibt es ein Profil mit Anzeigename und Rolle (`admin`, `reviewer`, `viewer`). Im aktuellen Pilotbetrieb ist die Rolle vor allem eine vorbereitete Information; die Datenbankrechte unterscheiden die Rollen noch nicht vollständig.
+Zu jedem Supabase-Konto gibt es ein Profil mit Anzeigename, E-Mail-Adresse, Rolle und Freigabestatus. Neue Registrierungen sind zunächst `pending` und sehen keine Lehrplandaten. Ein Reviewer oder Admin kann sie freischalten. Die Rollen bedeuten:
+
+- `viewer`: darf Daten und PDFs lesen, aber nichts verändern;
+- `reviewer`: darf Lehrpläne, Texte, Abschnitte und Geo-Entitäten prüfen und freischalten;
+- `admin`: hat zusätzlich Zugriff auf die Benutzerverwaltung und darf Adminrollen vergeben.
+
+Bei einer neuen Kontoanfrage wird für alle Admins ein Eintrag in `admin_notifications` erzeugt. Beim nächsten Öffnen der Web-App zeigt der Knopf **Benutzerverwaltung** die Zahl offener Anfragen. Die Freigabe selbst erfolgt über die abgesicherte Datenbankfunktion `review_account_request`; ein Browser kann keine Rolle unmittelbar in der Tabelle überschreiben.
 
 ## 9. Wie sehen die Daten am Ende aus?
 

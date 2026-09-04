@@ -59,6 +59,7 @@
           <button id="step-ner" type="button">3 Geo-NER</button>
         </div>
         <div class="user-menu">
+          <button id="manage-accounts" class="secondary hidden" type="button">Benutzerverwaltung</button>
           <span id="signed-in-user"></span>
           <button id="sign-out" class="secondary" type="button">Abmelden</button>
         </div>
@@ -332,6 +333,17 @@
       </section>
     </main>
     </div>
+    <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-dialog-title">
+      <div class="account-dialog-header">
+        <div>
+          <p class="eyebrow">Zugriffsverwaltung</p>
+          <h2 id="account-dialog-title">Kontoanfragen</h2>
+        </div>
+        <button id="close-account-dialog" class="secondary" type="button">Schließen</button>
+      </div>
+      <p id="account-dialog-status" class="helper-text">Lade Kontoanfragen …</p>
+      <div id="account-list" class="account-list"></div>
+    </dialog>
     <script src="./config.js"></script>
     <script src="./app.js" type="module"></script>
   </body>
