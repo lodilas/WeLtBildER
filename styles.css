@@ -933,14 +933,24 @@ body.sidebar-collapsed .sidebar-toggle {
   color: var(--muted);
 }
 
-.map-panel { display: flex; flex-direction: column; min-height: 0; }
+.map-panel { display: flex; flex-direction: column; min-height: 100vh; background: #fffdf8; }
+.public-map-header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1.05rem 1.35rem; border-bottom: 1px solid var(--line); background: #fff; }
+.public-map-header h1, .public-map-header .eyebrow { margin: 0; }
+.public-map-header h1 { font-size: clamp(1.15rem, 2.3vw, 1.8rem); }
+.public-map-user-menu { display: flex; align-items: center; gap: .65rem; white-space: nowrap; }
+.public-map-user-menu span { color: var(--muted); font-size: .85rem; }
+.map-view-switch { display: flex; gap: .25rem; padding: .7rem 1.35rem 0; background: #fff; border-bottom: 1px solid var(--line); }
+.map-view-switch button { border: 1px solid transparent; border-radius: .45rem .45rem 0 0; padding: .55rem .8rem; color: var(--muted); background: transparent; }
+.map-view-switch button.active { border-color: var(--line); border-bottom-color: #fbf7ec; background: #fbf7ec; color: var(--ink); font-weight: 700; }
+.map-panel > .ner-header { padding: .7rem 1.35rem; background: #fbf7ec; }
+.map-panel > .ner-header h3, .map-panel > .ner-header .eyebrow { margin: 0; }
 .map-layout { display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
+.map-panel.map-preview-open .map-layout { grid-template-columns: minmax(225px, 280px) minmax(290px, .8fr) minmax(470px, 1.35fr); }
 .map-sidebar { overflow: auto; border-right: 1px solid var(--line); background: #fbf7ec; }
 .map-filters, .map-documents-box { padding: 0.9rem; }
 .map-filters { border-bottom: 1px solid var(--line); }
 .map-sidebar h4 { margin: 0 0 0.7rem; font-size: 0.95rem; }
 .map-filters label { display: grid; gap: 0.25rem; margin: 0.55rem 0; color: var(--muted); font-size: 0.82rem; }
-.map-filters select { min-height: 2.4rem; max-height: 7rem; padding: 0.3rem; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); }
 .map-filters .helper-text { padding: 0; margin: 0.55rem 0; }
 .map-documents { display: grid; gap: 0.45rem; max-height: 42vh; overflow: auto; }
 .map-document { border: 1px solid var(--line); border-radius: 6px; padding: 0.55rem; background: white; color: var(--ink); cursor: pointer; text-align: left; }
@@ -949,6 +959,11 @@ body.sidebar-collapsed .sidebar-toggle {
 .map-canvas-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: white; }
 #map-chart { flex: 1; min-height: 580px; }
 .map-note { margin: 0; padding: 0.45rem 0.8rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); }
+.map-text-preview { min-width: 0; overflow: auto; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; }
+.map-text-preview .highlighted-text { padding: .9rem; overflow: auto; white-space: pre-wrap; line-height: 1.6; }
+.map-preview-mention { border-radius: .18rem; padding: 0 .08rem; background: #f6d97c; }
+.map-preview-mention.accepted, .map-preview-mention.changed { background: #a8dfc0; }
+.map-preview-mention.rejected { background: #e4e7eb; text-decoration: line-through; }
 
 @media (max-width: 1100px) {
   body {
@@ -981,9 +996,10 @@ body.sidebar-collapsed .sidebar-toggle {
     overflow: auto;
   }
 
-  .map-layout { grid-template-columns: 1fr; overflow: visible; }
+  .map-layout, .map-panel.map-preview-open .map-layout { grid-template-columns: 1fr; overflow: visible; }
   .map-sidebar { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
   .map-documents { max-height: 16rem; }
+  .map-text-preview { min-height: 18rem; border-right: 0; border-bottom: 1px solid var(--line); }
 
   .metadata-grid {
     grid-template-columns: 1fr;
@@ -1008,6 +1024,12 @@ body.sidebar-collapsed .sidebar-toggle {
   #section-pdf-viewer {
     height: 60vh;
   }
+}
+
+@media (max-width: 760px) {
+  .public-map-header { align-items: flex-start; flex-direction: column; }
+  .public-map-user-menu { width: 100%; justify-content: space-between; }
+  .map-view-switch { overflow-x: auto; padding-left: .8rem; padding-right: .8rem; }
 }
 
 @media (max-width: 760px) {

@@ -3,7 +3,7 @@
 ## 1. Supabase
 
 1. Neues Projekt anlegen und E-Mail-Anmeldung aktivieren.
-2. `supabase/migrations/001_review_app.sql`, danach `supabase/migrations/002_account_approval_and_roles.sql`, `003_section_metadata.sql` und `004_map_visualization.sql` ausführen.
+2. `supabase/migrations/001_review_app.sql`, danach `supabase/migrations/002_account_approval_and_roles.sql`, `003_section_metadata.sql`, `004_map_visualization.sql` und `005_public_visualization.sql` ausführen.
 3. In Storage den privaten Bucket `curriculum-assets` verwenden.
 4. Vor dem Pilotstart nur die zehn vorhandenen Testdokumente samt ihren bereits erzeugten Textversionen und NER-Fundstellen mit `scripts/import_existing_test_pilot.py` importieren. Das Skript fragt den Service-Role-Key verdeckt ab und speichert ihn nicht.
 5. Testkonto anlegen und RLS mit diesem Konto prüfen.
@@ -55,6 +55,6 @@ Der regelbasierte Geo-NER benötigt keinen Worker: Die statische App gleicht den
 
 ## 5. Weltkarten-Auswertung
 
-`004_map_visualization.sql` legt zwei lesende RPC-Funktionen an. Sie zählen nur Fundstellen der aktuellen Textversionen und schließen verworfene sowie veraltete NER-Vorschläge aus. Wenn ein Dokument bereits Abschnittsmarkierungen besitzt, werden nur Fundstellen innerhalb passender Abschnitte gezählt; ansonsten greift die Dokumentmetadaten-Zuordnung.
+`004_map_visualization.sql` legt die Grundlage für die gefilterte Aggregation an. `005_public_visualization.sql` ergänzt öffentliche, ausschließlich aggregierte RPC-Funktionen für die Startseite. Sie geben weder PDF-URLs noch OCR-, Clean- oder Manual-Texte aus. Sie zählen nur Fundstellen der aktuellen Textversionen und schließen verworfene sowie veraltete NER-Vorschläge aus. Wenn ein Dokument bereits Abschnittsmarkierungen besitzt, werden nur Fundstellen innerhalb passender Abschnitte gezählt; ansonsten greift die Dokumentmetadaten-Zuordnung.
 
 Die Karte filtert nach Fachkomplex, Bundesland, Schulform, Klassenstufe und dem Schuljahr innerhalb des Gültigkeitsbereichs. Ein Klick auf ein Land oder einen Regionenmarker lädt die passende Lehrplanliste; ein Klick auf einen Lehrplan öffnet diesen in Schritt 1.

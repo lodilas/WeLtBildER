@@ -24,8 +24,12 @@ const state = {
   profile: null,
   accountRequests: [],
   mapMetadata: null,
+  mapFilterOptions: null,
   mapRows: [],
+  mapView: "countries",
   selectedMapEntity: null,
+  loginIntent: null,
+  pendingMapDocumentId: null,
   selectedEntityId: null,
   selectedSectionId: null,
   pendingSelection: null,
@@ -69,7 +73,6 @@ const elements = {
   stepText: document.querySelector("#step-text"),
   stepSections: document.querySelector("#step-sections"),
   stepNer: document.querySelector("#step-ner"),
-  stepMap: document.querySelector("#step-map"),
   pdfToggles: [...document.querySelectorAll(".pdf-pane-toggle")],
   textPanel: document.querySelector("#text-panel"),
   sectionsPanel: document.querySelector("#sections-panel"),
@@ -87,6 +90,14 @@ const elements = {
   mapSelectionTitle: document.querySelector("#map-selection-title"),
   mapSelectionSummary: document.querySelector("#map-selection-summary"),
   mapDocuments: document.querySelector("#map-documents"),
+  mapLoginButton: document.querySelector("#map-login-button"),
+  mapSignedInUser: document.querySelector("#map-signed-in-user"),
+  mapViewButtons: [...document.querySelectorAll("[data-map-view]")],
+  mapTextPreview: document.querySelector("#map-text-preview"),
+  mapPreviewTitle: document.querySelector("#map-preview-title"),
+  mapPreviewContent: document.querySelector("#map-preview-content"),
+  openPreviewInReview: document.querySelector("#open-preview-in-review"),
+  mapNote: document.querySelector("#map-note"),
   saveManual: document.querySelector("#save-manual"),
   runNer: document.querySelector("#run-ner"),
   rerunNer: document.querySelector("#rerun-ner"),
@@ -142,6 +153,11 @@ const elements = {
   accountDialogStatus: document.querySelector("#account-dialog-status"),
   accountList: document.querySelector("#account-list"),
 };
+
+// The map is intentionally public.  It is authored next to the review panels
+// in index.html for maintainability, but moved out of the protected app shell
+// before any view is shown so an unauthenticated visitor can use it.
+document.body.insertBefore(elements.mapPanel, elements.authGate);
 
 function requireClient() {
   if (!supabase) throw new Error("Supabase ist noch nicht konfiguriert. Bitte config.js ausfüllen.");
@@ -1162,11 +1178,9 @@ async function setStep(step, refreshNer = true) {
   elements.stepText.classList.toggle("active", step === "text");
   elements.stepSections.classList.toggle("active", step === "sections");
   elements.stepNer.classList.toggle("active", step === "ner");
-  elements.stepMap.classList.toggle("active", step === "map");
   elements.textPanel.classList.toggle("hidden", step !== "text");
   elements.sectionsPanel.classList.toggle("hidden", step !== "sections");
   elements.nerPanel.classList.toggle("hidden", step !== "ner");
-  elements.mapPanel.classList.toggle("hidden", step !== "map");
   if (step === "sections") {
     renderSectionText();
     renderSectionList();
@@ -1181,43 +1195,28 @@ async function setStep(step, refreshNer = true) {
       renderEntityList();
     }
   }
-  if (step === "map") {
-    await refreshMap();
+}
+
+async function ensureMapFilterOptions() {
+  if (!state.mapFilterOptions) {
+    state.mapFilterOptions = unwrap(await requireClient().rpc("visualization_filter_options"));
   }
-}
-
-function selectedSelectValues(element) {
-  return [...element.selectedOptions].map((option) => option.value);
-}
-
-function fillMapSelect(element, values, selected = selectedSelectValues(element)) {
-  const selectedSet = new Set(selected);
-  element.replaceChildren();
-  [...new Set(values.filter(Boolean))].sort((left, right) => String(left).localeCompare(String(right), "de-DE", { numeric: true })).forEach((value) => {
-    const option = document.createElement("option");
-    option.value = String(value);
-    option.textContent = String(value);
-    option.selected = selectedSet.has(String(value));
-    element.append(option);
-  });
-}
-
-function renderMapFilterOptions() {
-  const collect = (field) => state.documents.flatMap((document) => splitValues(document[field]));
-  fillMapSelect(elements.mapSubjectComplexes, collect("subject_complexes"));
-  fillMapSelect(elements.mapFederalStates, collect("federal_state"));
-  fillMapSelect(elements.mapSchoolTypes, collect("school_types"));
-  fillMapSelect(elements.mapGradeLevels, collect("grade_levels"));
-  fillMapSelect(elements.mapValidityYears, state.metadataOptions.validity_start || []);
+  const options = state.mapFilterOptions || {};
+  const render = (element, values) => renderChoicePicker(element, values || [], pickerValues(element));
+  render(elements.mapSubjectComplexes, options.subject_complexes);
+  render(elements.mapFederalStates, options.federal_states);
+  render(elements.mapSchoolTypes, options.school_types);
+  render(elements.mapGradeLevels, (options.grade_levels || []).map(String));
+  render(elements.mapValidityYears, options.validity_years);
 }
 
 function mapFilters() {
   return {
-    filter_subject_complexes: selectedSelectValues(elements.mapSubjectComplexes),
-    filter_federal_states: selectedSelectValues(elements.mapFederalStates),
-    filter_school_types: selectedSelectValues(elements.mapSchoolTypes),
-    filter_grade_levels: selectedSelectValues(elements.mapGradeLevels).map(Number).filter(Number.isFinite),
-    filter_validity_school_years: selectedSelectValues(elements.mapValidityYears),
+    filter_subject_complexes: pickerValues(elements.mapSubjectComplexes),
+    filter_federal_states: pickerValues(elements.mapFederalStates),
+    filter_school_types: pickerValues(elements.mapSchoolTypes),
+    filter_grade_levels: pickerValues(elements.mapGradeLevels).map(Number).filter(Number.isFinite),
+    filter_validity_school_years: pickerValues(elements.mapValidityYears),
   };
 }
 
@@ -1264,18 +1263,26 @@ async function refreshMap() {
   if (!window.Plotly) throw new Error("Die Kartenbibliothek konnte nicht geladen werden.");
   elements.mapStatus.textContent = "Karte wird berechnet …";
   await loadMapMetadata();
-  const rows = unwrap(await requireClient().rpc("map_entity_totals", mapFilters()));
+  await ensureMapFilterOptions();
+  const rows = unwrap(await requireClient().rpc("visualization_entity_totals", { view_name: state.mapView, ...mapFilters() }));
   state.mapRows = rows;
   state.selectedMapEntity = null;
-  elements.mapSelectionTitle.textContent = "Land oder Region auswählen";
-  elements.mapSelectionSummary.textContent = "Ein Klick auf Karte oder Marker zeigt hier die zugehörigen Lehrpläne.";
+  const label = state.mapView === "countries" ? "Land" : state.mapView === "regions" ? "Region" : "historische Entität";
+  elements.mapSelectionTitle.textContent = `${label[0].toUpperCase()}${label.slice(1)} auswählen`;
+  elements.mapSelectionSummary.textContent = "Ein Klick auf die Visualisierung zeigt hier die zugehörigen Lehrpläne.";
   elements.mapDocuments.replaceChildren();
   renderMapChart();
   const mapped = rows.filter((row) => mapMetadataFor(row)).length;
-  elements.mapStatus.textContent = `${rows.length} Entitäten · ${mapped} kartiert`;
+  elements.mapStatus.textContent = state.mapView === "historical"
+    ? `${rows.length} historische Entitäten`
+    : `${rows.length} Entitäten · ${mapped} kartiert`;
 }
 
 function renderMapChart() {
+  if (state.mapView === "historical") {
+    renderHistoricalTreemap();
+    return;
+  }
   const countries = state.mapRows.filter((row) => row.entity_type === "country" && mapMetadataFor(row)?.iso3);
   const regions = state.mapRows.filter((row) => row.entity_type === "region" && Number.isFinite(mapMetadataFor(row)?.lon) && Number.isFinite(mapMetadataFor(row)?.lat));
   const smallCountries = countries.filter((row) => smallCountryCentres[mapMetadataFor(row).iso3]);
@@ -1309,7 +1316,31 @@ function renderMapChart() {
     margin: { l: 8, r: 110, t: 8, b: 8 }, showlegend: false, paper_bgcolor: "white",
     geo: { scope: "world", projection: { type: "mollweide" }, showland: true, landcolor: "#f2f4f6", showcountries: true, countrycolor: "#b8c2ca", showocean: true, oceancolor: "#eaf3f8", showcoastlines: true, coastlinecolor: "#aeb8c0", bgcolor: "white" },
   };
-  window.Plotly.react(elements.mapChart, [countryTrace, regionTrace, smallTrace], layout, { responsive: true, displayModeBar: true });
+  const traces = state.mapView === "countries" ? [countryTrace, smallTrace] : [regionTrace];
+  elements.mapNote.textContent = state.mapView === "countries"
+    ? "Flächen: aktuelle Länder. Kleine Staaten sind zusätzlich als Punkte anklickbar. Die Farbskala ist logarithmisch."
+    : "Punkte: Regionen und Kontinente. Die Punktgröße steht für die Zahl der Erwähnungen.";
+  window.Plotly.react(elements.mapChart, traces, layout, { responsive: true, displayModeBar: true });
+  elements.mapChart.removeAllListeners?.("plotly_click");
+  elements.mapChart.on("plotly_click", (event) => {
+    const [entity, entityType] = event.points?.[0]?.customdata || [];
+    if (entity) selectMapEntity(entity, entityType).catch(showMapError);
+  });
+}
+
+function renderHistoricalTreemap() {
+  const rows = state.mapRows;
+  elements.mapNote.textContent = "Die Fläche jeder Kachel entspricht der Zahl der Erwähnungen. Ein Klick zeigt die zugehörigen Lehrpläne.";
+  window.Plotly.react(elements.mapChart, [{
+    type: "treemap",
+    labels: rows.map((row) => row.geographic_entity),
+    parents: rows.map(() => ""),
+    values: rows.map((row) => Number(row.mentions)),
+    customdata: rows.map((row) => [row.geographic_entity, row.entity_type]),
+    texttemplate: "%{label}<br>%{value} Nennungen",
+    hovertemplate: "%{label}<br>%{value} Nennungen<extra></extra>",
+    marker: { colors: rows.map((row) => Math.log1p(Number(row.mentions))), colorscale: [[0, "#fffdf5"], [0.2, "#fff1b6"], [0.55, "#fd8d3c"], [1, "#99000d"]] },
+  }], { margin: { l: 8, r: 8, t: 12, b: 8 }, paper_bgcolor: "white" }, { responsive: true, displayModeBar: true });
   elements.mapChart.removeAllListeners?.("plotly_click");
   elements.mapChart.on("plotly_click", (event) => {
     const [entity, entityType] = event.points?.[0]?.customdata || [];
@@ -1322,24 +1353,21 @@ async function selectMapEntity(entity, entityType) {
   elements.mapSelectionTitle.textContent = entity;
   elements.mapSelectionSummary.textContent = "Zugehörige Lehrpläne werden geladen …";
   elements.mapDocuments.replaceChildren();
-  const rows = unwrap(await requireClient().rpc("map_entity_documents", { selected_entity: entity, selected_entity_type: entityType, ...mapFilters() }));
+  const rows = unwrap(await requireClient().rpc("visualization_entity_documents", { selected_entity: entity, selected_entity_type: entityType, view_name: state.mapView, ...mapFilters() }));
   elements.mapSelectionSummary.textContent = `${rows.length} Lehrpläne enthalten diese Entität im aktiven Filter.`;
   rows.forEach((row) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "map-document";
     button.innerHTML = `<strong>${escapeHtml(row.document_id)}</strong> · ${escapeHtml(row.title)}<small>${Number(row.mentions).toLocaleString("de-DE")} Nennungen · ${escapeHtml(arrayToUi(row.subject_complexes) || "kein Fachkomplex")}</small>`;
-    button.addEventListener("click", async () => {
-      await loadDocument(row.document_id);
-      await setStep("text", false);
-    });
+    button.addEventListener("click", () => openMapDocument(row.document_id).catch(showMapError));
     elements.mapDocuments.append(button);
   });
 }
 
 function resetMapFilters() {
   [elements.mapSubjectComplexes, elements.mapFederalStates, elements.mapSchoolTypes, elements.mapGradeLevels, elements.mapValidityYears]
-    .forEach((select) => [...select.options].forEach((option) => { option.selected = false; }));
+    .forEach((picker) => renderChoicePicker(picker, [...picker.querySelectorAll("input")].map((input) => input.value), []));
   refreshMap().catch(showMapError);
 }
 
@@ -1508,7 +1536,6 @@ async function loadDocuments() {
     renderSubjectLexicon();
   }
   state.documents = await apiJson("/api/documents");
-  renderMapFilterOptions();
   renderDocuments();
   if (!state.current && state.documents.length) {
     await loadDocument(state.documents[0].id);
@@ -2106,9 +2133,13 @@ elements.toggleMetadata.addEventListener("click", () => {
 elements.stepText.addEventListener("click", () => setStep("text"));
 elements.stepSections.addEventListener("click", () => setStep("sections"));
 elements.stepNer.addEventListener("click", () => setStep("ner"));
-elements.stepMap.addEventListener("click", () => setStep("map").catch(showMapError));
 elements.applyMapFilters.addEventListener("click", () => refreshMap().catch(showMapError));
 elements.resetMapFilters.addEventListener("click", resetMapFilters);
+elements.mapViewButtons.forEach((button) => button.addEventListener("click", () => {
+  state.mapView = button.dataset.mapView;
+  elements.mapViewButtons.forEach((candidate) => candidate.classList.toggle("active", candidate === button));
+  refreshMap().catch(showMapError);
+}));
 elements.saveManual.addEventListener("click", saveManualText);
 function showNerError(error) {
   console.error(error);
@@ -2157,6 +2188,71 @@ document.querySelectorAll("[data-search-target]").forEach((box) => {
 setSidebarCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
 setPdfCollapsed(localStorage.getItem("pdf-collapsed") === "true");
 
+function updatePublicMapAccountControls() {
+  const approved = state.profile?.approval_status === "approved";
+  elements.mapSignedInUser.classList.toggle("hidden", !approved);
+  if (approved) {
+    elements.mapSignedInUser.textContent = `${state.profile.email || "angemeldet"} · ${roleLabel(state.profile.role)}`;
+    elements.mapLoginButton.textContent = "Lehrplan Review öffnen";
+  } else {
+    elements.mapLoginButton.textContent = "Login Lehrplan Review";
+  }
+}
+
+async function showPublicMap() {
+  elements.authGate.classList.add("hidden");
+  elements.appShell.classList.add("hidden");
+  if (state.profile?.approval_status !== "approved") {
+    // Never leave a previously opened protected text visible after logout.
+    elements.mapTextPreview.classList.add("hidden");
+    elements.mapPanel.classList.remove("map-preview-open");
+    elements.mapPreviewContent.replaceChildren();
+  }
+  elements.mapPanel.classList.remove("hidden");
+  updatePublicMapAccountControls();
+  await refreshMap();
+}
+
+async function showReviewApp() {
+  elements.authGate.classList.add("hidden");
+  elements.mapPanel.classList.add("hidden");
+  elements.appShell.classList.remove("hidden");
+  elements.signedInUser.textContent = `${state.profile.email || "angemeldet"} · ${roleLabel(state.profile.role)}`;
+  updateAccountControls(await refreshAccountNotificationCount());
+  applyReviewPermissions();
+  await loadDocuments();
+}
+
+function renderMapTextPreview() {
+  if (!state.current) return;
+  const entities = orderedDistinctEntities();
+  let cursor = 0;
+  let html = "";
+  for (const entity of entities) {
+    if (entity.char_start < cursor) continue;
+    html += escapeHtml(state.text.slice(cursor, entity.char_start));
+    html += `<mark class="map-preview-mention ${entity.status}" title="${escapeHtml(entity.canonical_entity)}">${escapeHtml(state.text.slice(entity.char_start, entity.char_end))}</mark>`;
+    cursor = entity.char_end;
+  }
+  html += escapeHtml(state.text.slice(cursor));
+  elements.mapPreviewTitle.textContent = `${state.current.id} · ${state.current.title}`;
+  elements.mapPreviewContent.innerHTML = html || "Kein manueller Text vorhanden.";
+  elements.mapTextPreview.classList.remove("hidden");
+  elements.mapPanel.classList.add("map-preview-open");
+}
+
+async function openMapDocument(documentId) {
+  if (state.profile?.approval_status !== "approved") {
+    state.loginIntent = "map-document";
+    state.pendingMapDocumentId = documentId;
+    showAuthGate("Bitte anmelden, um den Lehrplantext und die Fundstellen zu sehen.");
+    return;
+  }
+  await loadDocuments();
+  await loadDocument(documentId);
+  renderMapTextPreview();
+}
+
 async function showAuthenticatedApp(session) {
   try {
     state.profile = await loadCurrentProfile(session.user.id);
@@ -2167,12 +2263,16 @@ async function showAuthenticatedApp(session) {
       showAuthGate(message);
       return;
     }
-    elements.authGate.classList.add("hidden");
-    elements.appShell.classList.remove("hidden");
-    elements.signedInUser.textContent = `${session.user.email || "angemeldet"} · ${roleLabel(state.profile.role)}`;
-    updateAccountControls(await refreshAccountNotificationCount());
-    applyReviewPermissions();
-    await loadDocuments();
+    state.profile.email = session.user.email;
+    if (state.loginIntent === "map-document") {
+      const documentId = state.pendingMapDocumentId;
+      state.loginIntent = null;
+      state.pendingMapDocumentId = null;
+      await showPublicMap();
+      if (documentId) await openMapDocument(documentId);
+      return;
+    }
+    await showReviewApp();
   } catch (error) {
     console.error(error);
     showAuthGate(`Konto konnte nicht freigeschaltet werden: ${error.message}`);
@@ -2180,8 +2280,8 @@ async function showAuthenticatedApp(session) {
 }
 
 function showAuthGate(message = "") {
-  state.profile = null;
   elements.appShell.classList.add("hidden");
+  elements.mapPanel.classList.add("hidden");
   elements.authGate.classList.remove("hidden");
   elements.authStatus.textContent = message;
   updateAccountControls();
@@ -2219,6 +2319,19 @@ elements.signOut.addEventListener("click", async () => {
   await supabase.auth.signOut();
 });
 
+elements.mapLoginButton.addEventListener("click", async () => {
+  if (state.profile?.approval_status === "approved") {
+    await showReviewApp();
+    return;
+  }
+  state.loginIntent = "review";
+  showAuthGate("Bitte anmelden, um den Lehrplan-Review zu öffnen.");
+});
+elements.openPreviewInReview.addEventListener("click", async () => {
+  await showReviewApp();
+  await setStep("ner", false);
+});
+
 elements.manageAccounts.addEventListener("click", async () => {
   try {
     elements.accountDialog.showModal();
@@ -2233,10 +2346,23 @@ if (!supabase) {
   showAuthGate("Bitte zuerst Supabase-URL und den öffentlichen Anon-Key in config.js eintragen.");
 } else {
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) await showAuthenticatedApp(session);
-  else showAuthGate();
-  supabase.auth.onAuthStateChange((_event, nextSession) => {
+  if (session) {
+    try {
+      state.profile = await loadCurrentProfile(session.user.id);
+      state.profile.email = session.user.email;
+    } catch (error) {
+      console.warn("Profil konnte für die öffentliche Karte nicht geladen werden.", error);
+    }
+  }
+  await showPublicMap();
+  supabase.auth.onAuthStateChange((event, nextSession) => {
+    if (event === "INITIAL_SESSION") return;
     if (nextSession) showAuthenticatedApp(nextSession);
-    else showAuthGate();
+    else {
+      state.profile = null;
+      state.loginIntent = null;
+      state.pendingMapDocumentId = null;
+      showPublicMap().catch(showMapError);
+    }
   });
 }

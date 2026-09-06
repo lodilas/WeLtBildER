@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lehrplan Review</title>
-    <link rel="stylesheet" href="./styles.css?v=20260906-section-metadata" />
+    <link rel="stylesheet" href="./styles.css?v=20260906-public-map" />
   </head>
   <body>
-    <section id="auth-gate" class="auth-gate">
+    <section id="auth-gate" class="auth-gate hidden">
       <form id="auth-form" class="auth-card">
         <div class="brand-mark">LR</div>
         <h1>Lehrplan Review</h1>
@@ -57,7 +57,6 @@
           <button id="step-text" class="active" type="button">1 Metadaten & OCR</button>
           <button id="step-sections" type="button">2 Abschnitte</button>
           <button id="step-ner" type="button">3 Geo-NER</button>
-          <button id="step-map" type="button">4 Weltkarte</button>
         </div>
         <div class="user-menu">
           <button id="manage-accounts" class="secondary hidden" type="button">Benutzerverwaltung</button>
@@ -354,6 +353,21 @@
       </section>
 
       <section id="map-panel" class="panel map-panel hidden">
+        <header class="public-map-header">
+          <div>
+            <p class="eyebrow">Lehrplanforschung</p>
+            <h1>Geografische Erwähnungen in deutschen Lehrplänen</h1>
+          </div>
+          <div class="public-map-user-menu">
+            <span id="map-signed-in-user" class="hidden"></span>
+            <button id="map-login-button" class="secondary" type="button">Login Lehrplan Review</button>
+          </div>
+        </header>
+        <div class="map-view-switch" role="tablist" aria-label="Visualisierungsansicht">
+          <button class="active" data-map-view="countries" type="button">Länder</button>
+          <button data-map-view="regions" type="button">Regionen</button>
+          <button data-map-view="historical" type="button">Historische Entitäten</button>
+        </div>
         <div class="ner-header">
           <div>
             <p class="eyebrow">Auswertung</p>
@@ -365,12 +379,12 @@
           <aside class="map-sidebar">
             <div class="map-filters">
               <h4>Lehrpläne filtern</h4>
-              <label>Fachkomplex <select id="map-subject-complexes" multiple></select></label>
-              <label>Bundesland <select id="map-federal-states" multiple></select></label>
-              <label>Schulform <select id="map-school-types" multiple></select></label>
-              <label>Klassenstufe <select id="map-grade-levels" multiple></select></label>
-              <label>Gültig in Schuljahr <select id="map-validity-years" multiple></select></label>
-              <p class="helper-text">Mehrfachauswahl: Strg/Cmd gedrückt halten. Ohne Auswahl werden alle Werte einbezogen.</p>
+              <label>Fachkomplex <div id="map-subject-complexes" class="choice-picker" data-multiple="true"></div></label>
+              <label>Bundesland <div id="map-federal-states" class="choice-picker" data-multiple="true"></div></label>
+              <label>Schulform <div id="map-school-types" class="choice-picker" data-multiple="true"></div></label>
+              <label>Klassenstufe <div id="map-grade-levels" class="choice-picker" data-multiple="true"></div></label>
+              <label>Gültig in Schuljahr <div id="map-validity-years" class="choice-picker" data-multiple="true"></div></label>
+              <p class="helper-text">Ohne Auswahl werden alle Werte einbezogen.</p>
               <div class="actions compact">
                 <button id="apply-map-filters" type="button">Karte aktualisieren</button>
                 <button id="reset-map-filters" class="secondary" type="button">Filter zurücksetzen</button>
@@ -382,9 +396,16 @@
               <div id="map-documents" class="map-documents"></div>
             </div>
           </aside>
+          <article id="map-text-preview" class="map-text-preview hidden">
+            <div class="pane-header">
+              <span id="map-preview-title">Lehrplan</span>
+              <button id="open-preview-in-review" class="secondary" type="button">Im Review öffnen</button>
+            </div>
+            <article id="map-preview-content" class="highlighted-text"></article>
+          </article>
           <div class="map-canvas-pane">
-            <div id="map-chart" aria-label="Interaktive Weltkarte geografischer Erwähnungen"></div>
-            <p class="map-note">Flächen: aktuelle Länder; Punkte: Regionen und Kontinente. Die Farbskala ist logarithmisch.</p>
+            <div id="map-chart" aria-label="Interaktive Visualisierung geografischer Erwähnungen"></div>
+            <p id="map-note" class="map-note">Flächen: aktuelle Länder. Die Farbskala ist logarithmisch.</p>
           </div>
         </div>
       </section>
@@ -402,7 +423,7 @@
       <div id="account-list" class="account-list"></div>
     </dialog>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-    <script src="./config.js?v=20260906-map-visualization"></script>
-    <script src="./app.js?v=20260906-map-visualization" type="module"></script>
+    <script src="./config.js?v=20260906-public-map"></script>
+    <script src="./app.js?v=20260906-public-map" type="module"></script>
   </body>
 </html>
