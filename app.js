@@ -1240,6 +1240,8 @@ async function loadMapMetadata() {
   parseMapCsv(await response.text()).forEach((row) => {
     const entityType = row.entity_type === "country" ? "country" : "region";
     metadata.set(`${normalizeLexiconSurface(row.geographic_entity)}|${entityType}`, {
+      geographicEntity: row.geographic_entity,
+      entityType,
       iso3: row.iso3,
       lon: Number(row.lon),
       lat: Number(row.lat),
@@ -1254,6 +1256,13 @@ function mapMetadataFor(row) {
 }
 
 const smallCountryCentres = {
+  // In a Mollweide projection these countries are too small for a reliable
+  // choropleth click. The marker coordinates make them visible and clickable
+  // while its colour still uses exactly the country frequency scale.
+  BEL: [4.47, 50.50], BRN: [114.73, 4.54], CHE: [8.23, 46.82],
+  ISR: [34.85, 31.05], KWT: [47.48, 29.31], LBN: [35.86, 33.85],
+  LUX: [6.13, 49.82], NLD: [5.29, 52.13], PSE: [35.23, 31.95],
+  QAT: [51.18, 25.35], RWA: [29.87, -1.94], SVN: [15.00, 46.15],
   XKX: [21.17, 42.66], MDV: [73.22, 3.20], MLT: [14.38, 35.94],
   FSM: [158.20, 6.92], SGP: [103.82, 1.35], MAC: [113.54, 22.20],
 };
@@ -1289,7 +1298,18 @@ function renderMapChart() {
   }
   const countries = state.mapRows.filter((row) => row.entity_type === "country" && mapMetadataFor(row)?.iso3);
   const regions = state.mapRows.filter((row) => row.entity_type === "region" && Number.isFinite(mapMetadataFor(row)?.lon) && Number.isFinite(mapMetadataFor(row)?.lat));
-  const smallCountries = countries.filter((row) => smallCountryCentres[mapMetadataFor(row).iso3]);
+  const countryByCanonical = new Map(countries.map((row) => [normalizeLexiconSurface(row.geographic_entity), row]));
+  // Display these markers even when a filter yields zero mentions. Otherwise a
+  // small country would silently disappear precisely when a user needs to see
+  // that the selected subset does not mention it.
+  const smallCountries = [...state.mapMetadata.values()]
+    .filter((metadata) => metadata.entityType === "country" && smallCountryCentres[metadata.iso3])
+    .map((metadata) => countryByCanonical.get(normalizeLexiconSurface(metadata.geographicEntity)) || ({
+      geographic_entity: metadata.geographicEntity,
+      entity_type: "country",
+      mentions: 0,
+      documents: 0,
+    }));
   const maxMentions = Math.max(1, ...countries.map((row) => Number(row.mentions)));
   const countryTrace = {
     type: "choropleth", locationmode: "ISO-3",
@@ -1314,7 +1334,7 @@ function renderMapChart() {
     lon: smallCountries.map((row) => smallCountryCentres[mapMetadataFor(row).iso3][0]), lat: smallCountries.map((row) => smallCountryCentres[mapMetadataFor(row).iso3][1]),
     text: smallCountries.map(mapHover), hoverinfo: "text",
     customdata: smallCountries.map((row) => [row.geographic_entity, row.entity_type]),
-    marker: { size: smallCountries.map((row) => Math.max(11, 6 + Math.sqrt(Number(row.mentions)) * 2.7)), color: smallCountries.map((row) => Math.log1p(Number(row.mentions))), colorscale: countryTrace.colorscale, cmin: 0, cmax: Math.log1p(maxMentions), showscale: false, line: { color: "white", width: 1.4 } },
+    marker: { size: smallCountries.map((row) => Math.max(13, 7 + Math.sqrt(Number(row.mentions)) * 2.7)), color: smallCountries.map((row) => Math.log1p(Number(row.mentions))), colorscale: countryTrace.colorscale, cmin: 0, cmax: Math.log1p(maxMentions), showscale: false, line: { color: "#3d4650", width: 1.5 } },
   };
   const layout = {
     margin: { l: 8, r: 110, t: 8, b: 8 }, showlegend: false, paper_bgcolor: "white",
