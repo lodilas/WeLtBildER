@@ -121,9 +121,13 @@ Manche PDFs enthalten Vorgaben für mehrere Fächer, Klassenstufen oder Schulfor
 1. Im mittleren Textfeld den gewünschten Bereich markieren.
 2. **„Textauswahl als Abschnitt“** wählen.
 3. Rechts Titel und Zuordnungen festlegen, etwa Fach `Geschichte`, Klassenstufen `7; 8` oder Schulform `Gymnasium`.
-4. Abschnitt speichern.
+4. Bei Bedarf eine **formale Abschnittsart** wählen: Titel, Vorwort, Inhaltsverzeichnis, allgemeine oder fachspezifische Einleitung sowie Lehrplanvorgabe/Thema.
+5. Für abweichende Teilregelungen Gültigkeitsbeginn und -ende auswählen. Zur Wahl stehen die Schuljahre 1996/1997 bis 2030/2031.
+6. Abschnitt speichern.
 
 Die App speichert nicht den Text doppelt, sondern seine Start- und Endposition in der aktuellen Textversion. Ein Abschnitt gehört deshalb immer genau zu einer Textversion.
+
+Zusätzlich speichert sie die Abschnittsart sowie die beiden Gültigkeitswerte direkt am Abschnitt. Damit kann die spätere Auswertung beispielsweise reine Inhaltsverzeichnisse ausklammern oder Vorgaben zählen, die nur in einem bestimmten Gültigkeitszeitraum gelten.
 
 Weitere Knöpfe:
 
@@ -228,7 +232,7 @@ Eine Zeile ist eine bestimmte Fassung eines Textes. Das Feld `content` enthält 
 
 ### `text_sections`: fachliche Textbereiche
 
-Eine Zeile markiert einen Bereich innerhalb einer bestimmten Textversion. Wichtige Felder sind `char_start` und `char_end`: Das sind die Zeichenpositionen, an denen der Bereich beginnt und endet. Dazu kommen die zugeordneten Fächer, Fachkomplexe, Klassenstufen, Schulformen und Leistungsniveaus.
+Eine Zeile markiert einen Bereich innerhalb einer bestimmten Textversion. Wichtige Felder sind `char_start` und `char_end`: Das sind die Zeichenpositionen, an denen der Bereich beginnt und endet. Dazu kommen die zugeordneten Fächer, Fachkomplexe, Klassenstufen, Schulformen, Leistungsniveaus, Gültigkeitsbeginn/-ende und optional eine formale Abschnittsart (`section_type`).
 
 ### `entity_occurrences`: einzelne geografische Fundstellen
 

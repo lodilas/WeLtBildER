@@ -100,11 +100,14 @@ const elements = {
   captureSection: document.querySelector("#capture-section"),
   wholeDocumentSection: document.querySelector("#whole-document-section"),
   sectionTitle: document.querySelector("#section-title"),
+  sectionType: document.querySelector("#section-type"),
   sectionSubjects: document.querySelector("#section-subjects"),
   sectionSubjectComplexes: document.querySelector("#section-subject-complexes"),
   sectionSchoolTypes: document.querySelector("#section-school-types"),
   sectionGradeLevels: document.querySelector("#section-grade-levels"),
   sectionPerformanceLevel: document.querySelector("#section-performance-level"),
+  sectionValidityStart: document.querySelector("#section-validity-start"),
+  sectionValidityEnd: document.querySelector("#section-validity-end"),
   sectionNote: document.querySelector("#section-note"),
   deleteSection: document.querySelector("#delete-section"),
   authGate: document.querySelector("#auth-gate"),
@@ -787,16 +790,16 @@ async function apiJson(url, options = {}) {
   }
   if (segments[1] === "sections" && segments[3] === "create" && method === "POST") {
     const userId = await awaitUserId(); const versionId = await currentTextVersionId(segments[2]);
-    return unwrap(await client.from("text_sections").insert({ document_id: segments[2], text_version_id: versionId, char_start: payload.char_start, char_end: payload.char_end, section_title: payload.section_title || "", subjects: splitStored(payload.subjects), subject_complexes: splitStored(payload.subject_complexes), school_types: splitStored(payload.school_types), grade_levels: splitStored(payload.grade_levels).map(Number).filter(Number.isFinite), performance_level: splitStored(payload.performance_level), note: payload.note || "", created_by: userId, updated_by: userId }).select("*").single());
+    return unwrap(await client.from("text_sections").insert({ document_id: segments[2], text_version_id: versionId, char_start: payload.char_start, char_end: payload.char_end, section_title: payload.section_title || "", section_type: payload.section_type || "", subjects: splitStored(payload.subjects), subject_complexes: splitStored(payload.subject_complexes), school_types: splitStored(payload.school_types), grade_levels: splitStored(payload.grade_levels).map(Number).filter(Number.isFinite), performance_level: splitStored(payload.performance_level), validity_start: payload.validity_start || "", validity_end: payload.validity_end || "", note: payload.note || "", created_by: userId, updated_by: userId }).select("*").single());
   }
   if (segments[1] === "sections" && segments[3] === "whole-document" && method === "POST") {
     const document = await currentDocument(segments[2]); const userId = await awaitUserId(); const versionId = await currentTextVersionId(document.id);
     const text = await apiText(`/api/text/${encodeURIComponent(document.id)}?version=manual`);
-    return unwrap(await client.from("text_sections").insert({ document_id: document.id, text_version_id: versionId, char_start: 0, char_end: text.length, section_title: "Ganzes Dokument", subjects: splitStored(document.subjects), subject_complexes: splitStored(document.subject_complexes), school_types: splitStored(document.school_types), grade_levels: splitStored(document.grade_levels).map(Number).filter(Number.isFinite), performance_level: splitStored(document.performance_level), created_by: userId, updated_by: userId }).select("*").single());
+    return unwrap(await client.from("text_sections").insert({ document_id: document.id, text_version_id: versionId, char_start: 0, char_end: text.length, section_title: "Ganzes Dokument", subjects: splitStored(document.subjects), subject_complexes: splitStored(document.subject_complexes), school_types: splitStored(document.school_types), grade_levels: splitStored(document.grade_levels).map(Number).filter(Number.isFinite), performance_level: splitStored(document.performance_level), validity_start: document.validity_start || "", validity_end: document.validity_end || "", created_by: userId, updated_by: userId }).select("*").single());
   }
   if (segments[1] === "sections" && segments[3] === "update" && method === "POST") {
     const userId = await awaitUserId();
-    return unwrap(await client.from("text_sections").update({ section_title: payload.section_title || "", subjects: splitStored(payload.subjects), subject_complexes: splitStored(payload.subject_complexes), school_types: splitStored(payload.school_types), grade_levels: splitStored(payload.grade_levels).map(Number).filter(Number.isFinite), performance_level: splitStored(payload.performance_level), note: payload.note || "", updated_by: userId }).eq("id", Number(segments[2])).select("*").single());
+    return unwrap(await client.from("text_sections").update({ section_title: payload.section_title || "", section_type: payload.section_type || "", subjects: splitStored(payload.subjects), subject_complexes: splitStored(payload.subject_complexes), school_types: splitStored(payload.school_types), grade_levels: splitStored(payload.grade_levels).map(Number).filter(Number.isFinite), performance_level: splitStored(payload.performance_level), validity_start: payload.validity_start || "", validity_end: payload.validity_end || "", note: payload.note || "", updated_by: userId }).eq("id", Number(segments[2])).select("*").single());
   }
   if (segments[1] === "sections" && segments[3] === "delete" && method === "POST") {
     unwrap(await client.from("text_sections").delete().eq("id", Number(segments[2]))); return { deleted: true };
@@ -1761,12 +1764,20 @@ function renderSectionList() {
     const title = section.section_title || `Abschnitt ${index + 1}`;
     button.innerHTML = `
       ${escapeHtml(title)}
-      <small>${escapeHtml(section.subjects || "kein Fach")} · ${escapeHtml(section.grade_levels || "keine Klassen")} · ${section.char_start}-${section.char_end}</small>
+      <small>${escapeHtml(sectionTypeLabel(section.section_type))} · ${escapeHtml(section.subjects || "kein Fach")} · ${escapeHtml(section.grade_levels || "keine Klassen")} · ${section.char_start}-${section.char_end}</small>
     `;
     button.addEventListener("click", () => selectSection(section.id));
     elements.sectionList.append(button);
   });
   fillSectionForm();
+}
+
+function sectionTypeLabel(type) {
+  return ({
+    title: "Titel", foreword: "Vorwort", table_of_contents: "Inhaltsverzeichnis",
+    introduction_general: "Einleitung allgemein", introduction_subject_specific: "Einleitung fachspezifisch",
+    curriculum_requirement_topic: "Lehrplanvorgabe / Thema",
+  })[type] || "ohne formale Markierung";
 }
 
 function selectSection(id) {
@@ -1782,8 +1793,10 @@ function fillSectionForm() {
   const source = section || state.current || {};
   if (section) {
     elements.sectionTitle.value = section.section_title || "";
+    elements.sectionType.value = section.section_type || "";
   } else if (!state.pendingSectionSelection) {
     elements.sectionTitle.value = "";
+    elements.sectionType.value = "";
   }
   renderChoicePicker(elements.sectionSubjects, state.metadataOptions.subjects || [], splitValues(source.subjects), true);
   renderChoicePicker(
@@ -1792,6 +1805,8 @@ function fillSectionForm() {
     splitValues(source.subject_complexes),
     true,
   );
+  renderChoicePicker(elements.sectionValidityStart, state.metadataOptions.validity_start || [], splitValues(source.validity_start), false);
+  renderChoicePicker(elements.sectionValidityEnd, state.metadataOptions.validity_end || [], splitValues(source.validity_end), false);
   renderChoicePicker(elements.sectionSchoolTypes, state.metadataOptions.school_types || [], splitValues(source.school_types), true);
   renderChoicePicker(elements.sectionGradeLevels, state.metadataOptions.grade_levels || [], splitValues(source.grade_levels), true);
   renderChoicePicker(
@@ -1819,6 +1834,7 @@ function captureSelectionAsSection() {
   state.pendingSectionSelection = offsets;
   state.selectedSectionId = null;
   elements.sectionTitle.value = offsets.surface.slice(0, 90).replace(/\s+/g, " ");
+  elements.sectionType.value = "";
   fillSectionForm();
   renderSectionText();
   elements.sectionText.querySelector(".pending-section")?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -1837,11 +1853,14 @@ async function saveSection(event) {
     char_start: range.char_start,
     char_end: range.char_end,
     section_title: elements.sectionTitle.value,
+    section_type: elements.sectionType.value,
     subjects: pickerValue(elements.sectionSubjects),
     subject_complexes: pickerValue(elements.sectionSubjectComplexes),
     school_types: pickerValue(elements.sectionSchoolTypes),
     grade_levels: pickerValue(elements.sectionGradeLevels),
     performance_level: pickerValue(elements.sectionPerformanceLevel),
+    validity_start: pickerValue(elements.sectionValidityStart),
+    validity_end: pickerValue(elements.sectionValidityEnd),
     note: elements.sectionNote.value,
   };
   const url = section

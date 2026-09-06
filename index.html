@@ -210,6 +210,18 @@
                 <input id="section-title" type="text" placeholder="z.B. Geschichte, Klassenstufe 7" />
               </label>
               <label>
+                Formale Abschnittsart
+                <select id="section-type">
+                  <option value="">nicht markiert</option>
+                  <option value="title">Titel</option>
+                  <option value="foreword">Vorwort</option>
+                  <option value="table_of_contents">Inhaltsverzeichnis</option>
+                  <option value="introduction_general">Einleitung allgemein</option>
+                  <option value="introduction_subject_specific">Einleitung fachspezifisch</option>
+                  <option value="curriculum_requirement_topic">Lehrplanvorgabe / Thema</option>
+                </select>
+              </label>
+              <label>
                 Fach laut Dokument
                 <div id="section-subjects" class="choice-picker" data-multiple="true"></div>
               </label>
@@ -228,6 +240,14 @@
               <label>
                 Leistungsniveau
                 <div id="section-performance-level" class="choice-picker" data-multiple="true"></div>
+              </label>
+              <label>
+                Gültigkeit Beginn
+                <div id="section-validity-start" class="choice-picker" data-multiple="false"></div>
+              </label>
+              <label>
+                Gültigkeit Ende
+                <div id="section-validity-end" class="choice-picker" data-multiple="false"></div>
               </label>
               <label>
                 Notiz
