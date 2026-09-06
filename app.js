@@ -1360,7 +1360,10 @@ function renderHistoricalTreemap() {
 
 async function selectMapEntity(entity, entityType) {
   state.selectedMapEntity = { entity, entityType };
-  if (!elements.mapTextPreview.classList.contains("hidden")) renderMapTextPreview();
+  if (!elements.mapTextPreview.classList.contains("hidden")) {
+    if (currentTextContainsMapEntity(entity, entityType)) renderMapTextPreview();
+    else hideMapTextPreview();
+  }
   elements.mapSelectionTitle.textContent = entity;
   elements.mapSelectionSummary.textContent = "Zugehörige Lehrpläne werden geladen …";
   elements.mapDocuments.replaceChildren();
@@ -2261,6 +2264,20 @@ function renderMapTextPreview() {
     ?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
+function currentTextContainsMapEntity(entity, entityType) {
+  return orderedDistinctEntities().some((occurrence) => (
+    occurrence.canonical_entity === entity
+    && (occurrence.entity_type === entityType
+      || (entityType === "region" && occurrence.entity_type === "continent"))
+  ));
+}
+
+function hideMapTextPreview() {
+  elements.mapTextPreview.classList.add("hidden");
+  elements.mapPanel.classList.remove("map-preview-open");
+  elements.showMapPreview.classList.remove("hidden");
+}
+
 async function openMapDocument(documentId) {
   if (state.profile?.approval_status !== "approved") {
     state.loginIntent = "map-document";
@@ -2354,9 +2371,7 @@ elements.openPreviewInReview.addEventListener("click", async () => {
   await setStep("ner", false);
 });
 elements.toggleMapPreview.addEventListener("click", () => {
-  elements.mapTextPreview.classList.add("hidden");
-  elements.mapPanel.classList.remove("map-preview-open");
-  elements.showMapPreview.classList.remove("hidden");
+  hideMapTextPreview();
 });
 elements.showMapPreview.addEventListener("click", () => {
   if (!state.current) return;
