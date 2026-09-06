@@ -3,7 +3,7 @@
 ## 1. Supabase
 
 1. Neues Projekt anlegen und E-Mail-Anmeldung aktivieren.
-2. `supabase/migrations/001_review_app.sql` und danach `supabase/migrations/002_account_approval_and_roles.sql` ausführen.
+2. `supabase/migrations/001_review_app.sql`, danach `supabase/migrations/002_account_approval_and_roles.sql`, `003_section_metadata.sql` und `004_map_visualization.sql` ausführen.
 3. In Storage den privaten Bucket `curriculum-assets` verwenden.
 4. Vor dem Pilotstart nur die zehn vorhandenen Testdokumente samt ihren bereits erzeugten Textversionen und NER-Fundstellen mit `scripts/import_existing_test_pilot.py` importieren. Das Skript fragt den Service-Role-Key verdeckt ab und speichert ihn nicht.
 5. Testkonto anlegen und RLS mit diesem Konto prüfen.
@@ -52,3 +52,9 @@ Der Anon-Key ist für Browser-Clients vorgesehen. Sicherheit kommt aus Auth und 
 Ein separater Docker-Python-Worker nutzt einen geheimen Service-Role-Key, liest Jobs aus einer späteren `processing_jobs`-Tabelle und schreibt neue OCR- und Cleaning-Textversionen. Er ist nicht Bestandteil dieses Piloten und läuft nicht auf GitHub Pages.
 
 Der regelbasierte Geo-NER benötigt keinen Worker: Die statische App gleicht den jeweils aktuellen Manual-Text im Browser mit dem bestätigten Supabase-Geo-Lexikon ab. Eine optionale KI-Komponente kann später ausschließlich Kandidaten für die Erweiterung dieses Lexikons erzeugen.
+
+## 5. Weltkarten-Auswertung
+
+`004_map_visualization.sql` legt zwei lesende RPC-Funktionen an. Sie zählen nur Fundstellen der aktuellen Textversionen und schließen verworfene sowie veraltete NER-Vorschläge aus. Wenn ein Dokument bereits Abschnittsmarkierungen besitzt, werden nur Fundstellen innerhalb passender Abschnitte gezählt; ansonsten greift die Dokumentmetadaten-Zuordnung.
+
+Die Karte filtert nach Fachkomplex, Bundesland, Schulform, Klassenstufe und dem Schuljahr innerhalb des Gültigkeitsbereichs. Ein Klick auf ein Land oder einen Regionenmarker lädt die passende Lehrplanliste; ein Klick auf einen Lehrplan öffnet diesen in Schritt 1.

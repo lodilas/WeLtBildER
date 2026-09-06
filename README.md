@@ -5,6 +5,7 @@ Diese Anwendung ist die getrennte Cloud-Testversion des lokalen Lehrplan-Review-
 1. Metadaten und OCR-/Manual-Text;
 2. fach-, klassen- und schulformspezifische Textabschnitte;
 3. Geo-NER per direktem Abgleich des aktuellen Manual-Texts mit dem gemeinsamen Geo-Lexikon sowie manuelle Entitäten.
+4. Weltkarte mit Länder- und Regionenhäufigkeiten, Filtern und Rücksprung zu den zugehörigen Lehrplänen.
 
 ## Architektur
 
@@ -12,6 +13,7 @@ Diese Anwendung ist die getrennte Cloud-Testversion des lokalen Lehrplan-Review-
 - Supabase liefert Auth, PostgreSQL und den privaten Storage-Bucket `curriculum-assets`.
 - Die App nutzt ausschließlich den öffentlichen Supabase-Anon-Key. Dieser darf im Browser sichtbar sein; Schutz entsteht durch Row-Level Security.
 - Der Geo-NER läuft direkt im Browser gegen `geo_lexicon`; dafür ist kein Worker erforderlich.
+- Die Weltkarte aggregiert aktive Geo-Fundstellen in Supabase. Ihre kartografischen ISO- und Koordinatenangaben liegen als statische, nicht personenbezogene Referenzdatei in `data/map_entities.csv`.
 - Ein künftiger OCR-/Cleaning-Worker läuft getrennt und schreibt neue Textversionen in dieselben Tabellen. Eine optionale KI-Auswertung kann später nur Vorschläge zur Erweiterung des Geo-Lexikons erzeugen.
 
 ## Sicherheitsgrenzen des Piloten

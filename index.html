@@ -57,6 +57,7 @@
           <button id="step-text" class="active" type="button">1 Metadaten & OCR</button>
           <button id="step-sections" type="button">2 Abschnitte</button>
           <button id="step-ner" type="button">3 Geo-NER</button>
+          <button id="step-map" type="button">4 Weltkarte</button>
         </div>
         <div class="user-menu">
           <button id="manage-accounts" class="secondary hidden" type="button">Benutzerverwaltung</button>
@@ -351,6 +352,42 @@
           </aside>
         </div>
       </section>
+
+      <section id="map-panel" class="panel map-panel hidden">
+        <div class="ner-header">
+          <div>
+            <p class="eyebrow">Auswertung</p>
+            <h3>Geografische Erwähnungen auf der Weltkarte</h3>
+          </div>
+          <p id="map-status" class="status-pill">Karte noch nicht geladen</p>
+        </div>
+        <div class="map-layout">
+          <aside class="map-sidebar">
+            <div class="map-filters">
+              <h4>Lehrpläne filtern</h4>
+              <label>Fachkomplex <select id="map-subject-complexes" multiple></select></label>
+              <label>Bundesland <select id="map-federal-states" multiple></select></label>
+              <label>Schulform <select id="map-school-types" multiple></select></label>
+              <label>Klassenstufe <select id="map-grade-levels" multiple></select></label>
+              <label>Gültig in Schuljahr <select id="map-validity-years" multiple></select></label>
+              <p class="helper-text">Mehrfachauswahl: Strg/Cmd gedrückt halten. Ohne Auswahl werden alle Werte einbezogen.</p>
+              <div class="actions compact">
+                <button id="apply-map-filters" type="button">Karte aktualisieren</button>
+                <button id="reset-map-filters" class="secondary" type="button">Filter zurücksetzen</button>
+              </div>
+            </div>
+            <div class="map-documents-box">
+              <h4 id="map-selection-title">Land oder Region auswählen</h4>
+              <p id="map-selection-summary" class="helper-text">Ein Klick auf Karte oder Marker zeigt hier die zugehörigen Lehrpläne.</p>
+              <div id="map-documents" class="map-documents"></div>
+            </div>
+          </aside>
+          <div class="map-canvas-pane">
+            <div id="map-chart" aria-label="Interaktive Weltkarte geografischer Erwähnungen"></div>
+            <p class="map-note">Flächen: aktuelle Länder; Punkte: Regionen und Kontinente. Die Farbskala ist logarithmisch.</p>
+          </div>
+        </div>
+      </section>
     </main>
     </div>
     <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-dialog-title">
@@ -364,7 +401,8 @@
       <p id="account-dialog-status" class="helper-text">Lade Kontoanfragen …</p>
       <div id="account-list" class="account-list"></div>
     </dialog>
-    <script src="./config.js?v=20260906-section-metadata"></script>
-    <script src="./app.js?v=20260906-section-metadata" type="module"></script>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script src="./config.js?v=20260906-map-visualization"></script>
+    <script src="./app.js?v=20260906-map-visualization" type="module"></script>
   </body>
 </html>

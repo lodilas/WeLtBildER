@@ -23,6 +23,9 @@ const state = {
   selectedCanonicalOption: null,
   profile: null,
   accountRequests: [],
+  mapMetadata: null,
+  mapRows: [],
+  selectedMapEntity: null,
   selectedEntityId: null,
   selectedSectionId: null,
   pendingSelection: null,
@@ -66,10 +69,24 @@ const elements = {
   stepText: document.querySelector("#step-text"),
   stepSections: document.querySelector("#step-sections"),
   stepNer: document.querySelector("#step-ner"),
+  stepMap: document.querySelector("#step-map"),
   pdfToggles: [...document.querySelectorAll(".pdf-pane-toggle")],
   textPanel: document.querySelector("#text-panel"),
   sectionsPanel: document.querySelector("#sections-panel"),
   nerPanel: document.querySelector("#ner-panel"),
+  mapPanel: document.querySelector("#map-panel"),
+  mapChart: document.querySelector("#map-chart"),
+  mapStatus: document.querySelector("#map-status"),
+  mapSubjectComplexes: document.querySelector("#map-subject-complexes"),
+  mapFederalStates: document.querySelector("#map-federal-states"),
+  mapSchoolTypes: document.querySelector("#map-school-types"),
+  mapGradeLevels: document.querySelector("#map-grade-levels"),
+  mapValidityYears: document.querySelector("#map-validity-years"),
+  applyMapFilters: document.querySelector("#apply-map-filters"),
+  resetMapFilters: document.querySelector("#reset-map-filters"),
+  mapSelectionTitle: document.querySelector("#map-selection-title"),
+  mapSelectionSummary: document.querySelector("#map-selection-summary"),
+  mapDocuments: document.querySelector("#map-documents"),
   saveManual: document.querySelector("#save-manual"),
   runNer: document.querySelector("#run-ner"),
   rerunNer: document.querySelector("#rerun-ner"),
@@ -1145,9 +1162,11 @@ async function setStep(step, refreshNer = true) {
   elements.stepText.classList.toggle("active", step === "text");
   elements.stepSections.classList.toggle("active", step === "sections");
   elements.stepNer.classList.toggle("active", step === "ner");
+  elements.stepMap.classList.toggle("active", step === "map");
   elements.textPanel.classList.toggle("hidden", step !== "text");
   elements.sectionsPanel.classList.toggle("hidden", step !== "sections");
   elements.nerPanel.classList.toggle("hidden", step !== "ner");
+  elements.mapPanel.classList.toggle("hidden", step !== "map");
   if (step === "sections") {
     renderSectionText();
     renderSectionList();
@@ -1162,6 +1181,171 @@ async function setStep(step, refreshNer = true) {
       renderEntityList();
     }
   }
+  if (step === "map") {
+    await refreshMap();
+  }
+}
+
+function selectedSelectValues(element) {
+  return [...element.selectedOptions].map((option) => option.value);
+}
+
+function fillMapSelect(element, values, selected = selectedSelectValues(element)) {
+  const selectedSet = new Set(selected);
+  element.replaceChildren();
+  [...new Set(values.filter(Boolean))].sort((left, right) => String(left).localeCompare(String(right), "de-DE", { numeric: true })).forEach((value) => {
+    const option = document.createElement("option");
+    option.value = String(value);
+    option.textContent = String(value);
+    option.selected = selectedSet.has(String(value));
+    element.append(option);
+  });
+}
+
+function renderMapFilterOptions() {
+  const collect = (field) => state.documents.flatMap((document) => splitValues(document[field]));
+  fillMapSelect(elements.mapSubjectComplexes, collect("subject_complexes"));
+  fillMapSelect(elements.mapFederalStates, collect("federal_state"));
+  fillMapSelect(elements.mapSchoolTypes, collect("school_types"));
+  fillMapSelect(elements.mapGradeLevels, collect("grade_levels"));
+  fillMapSelect(elements.mapValidityYears, state.metadataOptions.validity_start || []);
+}
+
+function mapFilters() {
+  return {
+    filter_subject_complexes: selectedSelectValues(elements.mapSubjectComplexes),
+    filter_federal_states: selectedSelectValues(elements.mapFederalStates),
+    filter_school_types: selectedSelectValues(elements.mapSchoolTypes),
+    filter_grade_levels: selectedSelectValues(elements.mapGradeLevels).map(Number).filter(Number.isFinite),
+    filter_validity_school_years: selectedSelectValues(elements.mapValidityYears),
+  };
+}
+
+function parseMapCsv(text) {
+  const [headerLine, ...lines] = text.trim().split(/\r?\n/u);
+  const headers = headerLine.split(",");
+  return lines.map((line) => {
+    const values = line.split(",");
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] || ""]));
+  });
+}
+
+async function loadMapMetadata() {
+  if (state.mapMetadata) return state.mapMetadata;
+  const response = await fetch("./data/map_entities.csv");
+  if (!response.ok) throw new Error("Kartendaten konnten nicht geladen werden.");
+  const metadata = new Map();
+  parseMapCsv(await response.text()).forEach((row) => {
+    const entityType = row.entity_type === "country" ? "country" : "region";
+    metadata.set(`${normalizeLexiconSurface(row.geographic_entity)}|${entityType}`, {
+      iso3: row.iso3,
+      lon: Number(row.lon),
+      lat: Number(row.lat),
+    });
+  });
+  state.mapMetadata = metadata;
+  return metadata;
+}
+
+function mapMetadataFor(row) {
+  return state.mapMetadata?.get(`${normalizeLexiconSurface(row.geographic_entity)}|${row.entity_type}`);
+}
+
+const smallCountryCentres = {
+  XKX: [21.17, 42.66], MDV: [73.22, 3.20], MLT: [14.38, 35.94],
+  FSM: [158.20, 6.92], SGP: [103.82, 1.35], MAC: [113.54, 22.20],
+};
+
+function mapHover(row) {
+  return `<b>${escapeHtml(row.geographic_entity)}</b><br>${Number(row.mentions).toLocaleString("de-DE")} Nennungen<br>${Number(row.documents).toLocaleString("de-DE")} Lehrpläne`;
+}
+
+async function refreshMap() {
+  if (!window.Plotly) throw new Error("Die Kartenbibliothek konnte nicht geladen werden.");
+  elements.mapStatus.textContent = "Karte wird berechnet …";
+  await loadMapMetadata();
+  const rows = unwrap(await requireClient().rpc("map_entity_totals", mapFilters()));
+  state.mapRows = rows;
+  state.selectedMapEntity = null;
+  elements.mapSelectionTitle.textContent = "Land oder Region auswählen";
+  elements.mapSelectionSummary.textContent = "Ein Klick auf Karte oder Marker zeigt hier die zugehörigen Lehrpläne.";
+  elements.mapDocuments.replaceChildren();
+  renderMapChart();
+  const mapped = rows.filter((row) => mapMetadataFor(row)).length;
+  elements.mapStatus.textContent = `${rows.length} Entitäten · ${mapped} kartiert`;
+}
+
+function renderMapChart() {
+  const countries = state.mapRows.filter((row) => row.entity_type === "country" && mapMetadataFor(row)?.iso3);
+  const regions = state.mapRows.filter((row) => row.entity_type === "region" && Number.isFinite(mapMetadataFor(row)?.lon) && Number.isFinite(mapMetadataFor(row)?.lat));
+  const smallCountries = countries.filter((row) => smallCountryCentres[mapMetadataFor(row).iso3]);
+  const maxMentions = Math.max(1, ...countries.map((row) => Number(row.mentions)));
+  const countryTrace = {
+    type: "choropleth", locationmode: "ISO-3",
+    locations: countries.map((row) => mapMetadataFor(row).iso3),
+    z: countries.map((row) => Math.log1p(Number(row.mentions))),
+    text: countries.map(mapHover), hoverinfo: "text",
+    customdata: countries.map((row) => [row.geographic_entity, row.entity_type]),
+    colorscale: [[0, "#fffdf5"], [0.16, "#fff1b6"], [0.38, "#fed976"], [0.62, "#fd8d3c"], [0.82, "#f03b20"], [1, "#99000d"]],
+    zmin: 0, zmax: Math.log1p(maxMentions),
+    marker: { line: { color: "#9aa7b0", width: 0.35 } },
+    colorbar: { title: "Ländernennungen<br>(log. Skala)", x: 1.02, len: 0.72 },
+  };
+  const regionTrace = {
+    type: "scattergeo", mode: "markers", name: "Regionen",
+    lon: regions.map((row) => mapMetadataFor(row).lon), lat: regions.map((row) => mapMetadataFor(row).lat),
+    text: regions.map(mapHover), hoverinfo: "text",
+    customdata: regions.map((row) => [row.geographic_entity, row.entity_type]),
+    marker: { size: regions.map((row) => Math.max(8, Math.sqrt(Number(row.mentions)) * 2.5)), color: "#1769aa", opacity: 0.8, line: { color: "white", width: 1 } },
+  };
+  const smallTrace = {
+    type: "scattergeo", mode: "markers", name: "Kleine Staaten",
+    lon: smallCountries.map((row) => smallCountryCentres[mapMetadataFor(row).iso3][0]), lat: smallCountries.map((row) => smallCountryCentres[mapMetadataFor(row).iso3][1]),
+    text: smallCountries.map(mapHover), hoverinfo: "text",
+    customdata: smallCountries.map((row) => [row.geographic_entity, row.entity_type]),
+    marker: { size: smallCountries.map((row) => Math.max(11, 6 + Math.sqrt(Number(row.mentions)) * 2.7)), color: smallCountries.map((row) => Math.log1p(Number(row.mentions))), colorscale: countryTrace.colorscale, cmin: 0, cmax: Math.log1p(maxMentions), showscale: false, line: { color: "white", width: 1.4 } },
+  };
+  const layout = {
+    margin: { l: 8, r: 110, t: 8, b: 8 }, showlegend: false, paper_bgcolor: "white",
+    geo: { scope: "world", projection: { type: "mollweide" }, showland: true, landcolor: "#f2f4f6", showcountries: true, countrycolor: "#b8c2ca", showocean: true, oceancolor: "#eaf3f8", showcoastlines: true, coastlinecolor: "#aeb8c0", bgcolor: "white" },
+  };
+  window.Plotly.react(elements.mapChart, [countryTrace, regionTrace, smallTrace], layout, { responsive: true, displayModeBar: true });
+  elements.mapChart.removeAllListeners?.("plotly_click");
+  elements.mapChart.on("plotly_click", (event) => {
+    const [entity, entityType] = event.points?.[0]?.customdata || [];
+    if (entity) selectMapEntity(entity, entityType).catch(showMapError);
+  });
+}
+
+async function selectMapEntity(entity, entityType) {
+  state.selectedMapEntity = { entity, entityType };
+  elements.mapSelectionTitle.textContent = entity;
+  elements.mapSelectionSummary.textContent = "Zugehörige Lehrpläne werden geladen …";
+  elements.mapDocuments.replaceChildren();
+  const rows = unwrap(await requireClient().rpc("map_entity_documents", { selected_entity: entity, selected_entity_type: entityType, ...mapFilters() }));
+  elements.mapSelectionSummary.textContent = `${rows.length} Lehrpläne enthalten diese Entität im aktiven Filter.`;
+  rows.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "map-document";
+    button.innerHTML = `<strong>${escapeHtml(row.document_id)}</strong> · ${escapeHtml(row.title)}<small>${Number(row.mentions).toLocaleString("de-DE")} Nennungen · ${escapeHtml(arrayToUi(row.subject_complexes) || "kein Fachkomplex")}</small>`;
+    button.addEventListener("click", async () => {
+      await loadDocument(row.document_id);
+      await setStep("text", false);
+    });
+    elements.mapDocuments.append(button);
+  });
+}
+
+function resetMapFilters() {
+  [elements.mapSubjectComplexes, elements.mapFederalStates, elements.mapSchoolTypes, elements.mapGradeLevels, elements.mapValidityYears]
+    .forEach((select) => [...select.options].forEach((option) => { option.selected = false; }));
+  refreshMap().catch(showMapError);
+}
+
+function showMapError(error) {
+  console.error(error);
+  elements.mapStatus.textContent = `Karte konnte nicht geladen werden: ${error.message || "Unbekannter Fehler"}`;
 }
 
 function renderDocuments() {
@@ -1324,6 +1508,7 @@ async function loadDocuments() {
     renderSubjectLexicon();
   }
   state.documents = await apiJson("/api/documents");
+  renderMapFilterOptions();
   renderDocuments();
   if (!state.current && state.documents.length) {
     await loadDocument(state.documents[0].id);
@@ -1921,6 +2106,9 @@ elements.toggleMetadata.addEventListener("click", () => {
 elements.stepText.addEventListener("click", () => setStep("text"));
 elements.stepSections.addEventListener("click", () => setStep("sections"));
 elements.stepNer.addEventListener("click", () => setStep("ner"));
+elements.stepMap.addEventListener("click", () => setStep("map").catch(showMapError));
+elements.applyMapFilters.addEventListener("click", () => refreshMap().catch(showMapError));
+elements.resetMapFilters.addEventListener("click", resetMapFilters);
 elements.saveManual.addEventListener("click", saveManualText);
 function showNerError(error) {
   console.error(error);

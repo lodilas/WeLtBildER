@@ -933,6 +933,23 @@ body.sidebar-collapsed .sidebar-toggle {
   color: var(--muted);
 }
 
+.map-panel { display: flex; flex-direction: column; min-height: 0; }
+.map-layout { display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
+.map-sidebar { overflow: auto; border-right: 1px solid var(--line); background: #fbf7ec; }
+.map-filters, .map-documents-box { padding: 0.9rem; }
+.map-filters { border-bottom: 1px solid var(--line); }
+.map-sidebar h4 { margin: 0 0 0.7rem; font-size: 0.95rem; }
+.map-filters label { display: grid; gap: 0.25rem; margin: 0.55rem 0; color: var(--muted); font-size: 0.82rem; }
+.map-filters select { min-height: 2.4rem; max-height: 7rem; padding: 0.3rem; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); }
+.map-filters .helper-text { padding: 0; margin: 0.55rem 0; }
+.map-documents { display: grid; gap: 0.45rem; max-height: 42vh; overflow: auto; }
+.map-document { border: 1px solid var(--line); border-radius: 6px; padding: 0.55rem; background: white; color: var(--ink); cursor: pointer; text-align: left; }
+.map-document:hover { border-color: var(--accent); background: #eaf4f2; }
+.map-document small { display: block; margin-top: 0.2rem; color: var(--muted); }
+.map-canvas-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: white; }
+#map-chart { flex: 1; min-height: 580px; }
+.map-note { margin: 0; padding: 0.45rem 0.8rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); }
+
 @media (max-width: 1100px) {
   body {
     grid-template-columns: 1fr;
@@ -963,6 +980,10 @@ body.sidebar-collapsed .sidebar-toggle {
     grid-template-columns: minmax(190px, 0.8fr) minmax(250px, 1.05fr) minmax(220px, 0.9fr);
     overflow: auto;
   }
+
+  .map-layout { grid-template-columns: 1fr; overflow: visible; }
+  .map-sidebar { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+  .map-documents { max-height: 16rem; }
 
   .metadata-grid {
     grid-template-columns: 1fr;
