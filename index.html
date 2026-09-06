@@ -400,11 +400,15 @@
           <article id="map-text-preview" class="map-text-preview hidden">
             <div class="pane-header">
               <span id="map-preview-title">Lehrplan</span>
-              <button id="open-preview-in-review" class="secondary" type="button">Im Review öffnen</button>
+              <div class="header-actions">
+                <button id="open-preview-in-review" class="secondary" type="button">Im Review öffnen</button>
+                <button id="toggle-map-preview" class="secondary map-preview-toggle" type="button" aria-label="Textansicht ausblenden" title="Textansicht ausblenden">›</button>
+              </div>
             </div>
             <article id="map-preview-content" class="highlighted-text"></article>
           </article>
           <div class="map-canvas-pane">
+            <button id="show-map-preview" class="secondary map-preview-show hidden" type="button" aria-label="Textansicht einblenden" title="Textansicht einblenden">‹</button>
             <div id="map-chart" aria-label="Interaktive Visualisierung geografischer Erwähnungen"></div>
             <p id="map-note" class="map-note">Flächen: aktuelle Länder. Die Farbskala ist logarithmisch.</p>
           </div>

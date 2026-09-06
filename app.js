@@ -97,6 +97,8 @@ const elements = {
   mapPreviewTitle: document.querySelector("#map-preview-title"),
   mapPreviewContent: document.querySelector("#map-preview-content"),
   openPreviewInReview: document.querySelector("#open-preview-in-review"),
+  toggleMapPreview: document.querySelector("#toggle-map-preview"),
+  showMapPreview: document.querySelector("#show-map-preview"),
   mapNote: document.querySelector("#map-note"),
   saveManual: document.querySelector("#save-manual"),
   runNer: document.querySelector("#run-ner"),
@@ -1323,6 +1325,7 @@ function renderMapChart() {
     ? "Flächen: aktuelle Länder. Kleine Staaten sind zusätzlich als Punkte anklickbar. Die Farbskala ist logarithmisch."
     : "Punkte: Regionen und Kontinente. Die Punktgröße steht für die Zahl der Erwähnungen.";
   window.Plotly.react(elements.mapChart, traces, layout, { responsive: true, displayModeBar: true });
+  elements.mapChart.removeAllListeners?.("plotly_treemapclick");
   elements.mapChart.removeAllListeners?.("plotly_click");
   elements.mapChart.on("plotly_click", (event) => {
     const [entity, entityType] = event.points?.[0]?.customdata || [];
@@ -1343,10 +1346,15 @@ function renderHistoricalTreemap() {
     hovertemplate: "%{label}<br>%{value} Nennungen<extra></extra>",
     marker: { colors: rows.map((row) => Math.log1p(Number(row.mentions))), colorscale: [[0, "#fffdf5"], [0.2, "#fff1b6"], [0.55, "#fd8d3c"], [1, "#99000d"]] },
   }], { margin: { l: 8, r: 8, t: 12, b: 8 }, paper_bgcolor: "white" }, { responsive: true, displayModeBar: true });
+  // Plotly treemaps normally drill down on click. Returning false from this
+  // dedicated event keeps the complete treemap visible while retaining our
+  // click action (show the matching documents).
   elements.mapChart.removeAllListeners?.("plotly_click");
-  elements.mapChart.on("plotly_click", (event) => {
+  elements.mapChart.removeAllListeners?.("plotly_treemapclick");
+  elements.mapChart.on("plotly_treemapclick", (event) => {
     const [entity, entityType] = event.points?.[0]?.customdata || [];
     if (entity) selectMapEntity(entity, entityType).catch(showMapError);
+    return false;
   });
 }
 
@@ -2246,6 +2254,7 @@ function renderMapTextPreview() {
   elements.mapPreviewContent.innerHTML = html || "Kein manueller Text vorhanden.";
   elements.mapTextPreview.classList.remove("hidden");
   elements.mapPanel.classList.add("map-preview-open");
+  elements.showMapPreview.classList.add("hidden");
   // The selected map entity is the reader's current question.  Bring its
   // first occurrence into view without changing the editable review text.
   elements.mapPreviewContent.querySelector(".selected-map-entity")
@@ -2343,6 +2352,15 @@ elements.mapLoginButton.addEventListener("click", async () => {
 elements.openPreviewInReview.addEventListener("click", async () => {
   await showReviewApp();
   await setStep("ner", false);
+});
+elements.toggleMapPreview.addEventListener("click", () => {
+  elements.mapTextPreview.classList.add("hidden");
+  elements.mapPanel.classList.remove("map-preview-open");
+  elements.showMapPreview.classList.remove("hidden");
+});
+elements.showMapPreview.addEventListener("click", () => {
+  if (!state.current) return;
+  renderMapTextPreview();
 });
 
 elements.manageAccounts.addEventListener("click", async () => {
