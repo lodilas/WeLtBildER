@@ -2246,10 +2246,8 @@ function renderMapTextPreview() {
     if (entity.char_start < cursor) continue;
     html += escapeHtml(state.text.slice(cursor, entity.char_start));
     const selectedOnMap = state.selectedMapEntity
-      && entity.canonical_entity === state.selectedMapEntity.entity
-      && (entity.entity_type === state.selectedMapEntity.entityType
-        || (state.selectedMapEntity.entityType === "region" && entity.entity_type === "continent"));
-    html += `<mark class="map-preview-mention ${entity.status}${selectedOnMap ? " selected-map-entity" : ""}" title="${escapeHtml(entity.canonical_entity)}">${escapeHtml(state.text.slice(entity.char_start, entity.char_end))}</mark>`;
+      && normalizeLexiconSurface(entity.canonical_entity) === normalizeLexiconSurface(state.selectedMapEntity.entity);
+    html += `<mark class="map-preview-mention ${entity.status}${selectedOnMap ? " selected-map-entity" : ""}" data-canonical="${escapeHtml(normalizeLexiconSurface(entity.canonical_entity))}" title="${escapeHtml(entity.canonical_entity)}">${escapeHtml(state.text.slice(entity.char_start, entity.char_end))}</mark>`;
     cursor = entity.char_end;
   }
   html += escapeHtml(state.text.slice(cursor));
@@ -2265,11 +2263,11 @@ function renderMapTextPreview() {
 }
 
 function currentTextContainsMapEntity(entity, entityType) {
-  return orderedDistinctEntities().some((occurrence) => (
-    occurrence.canonical_entity === entity
-    && (occurrence.entity_type === entityType
-      || (entityType === "region" && occurrence.entity_type === "continent"))
-  ));
+  // Use the visible preview itself as the source of truth. This also covers
+  // historic aliases and different internal region/continent type labels.
+  const canonical = normalizeLexiconSurface(entity);
+  return [...elements.mapPreviewContent.querySelectorAll(".map-preview-mention")]
+    .some((node) => node.dataset.canonical === canonical);
 }
 
 function hideMapTextPreview() {

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lehrplan Review</title>
-    <link rel="stylesheet" href="./styles.css?v=20260906-public-map" />
+    <link rel="stylesheet" href="./styles.css?v=20260906-map-preview-fix" />
   </head>
   <body>
     <section id="auth-gate" class="auth-gate hidden">
@@ -402,13 +402,13 @@
               <span id="map-preview-title">Lehrplan</span>
               <div class="header-actions">
                 <button id="open-preview-in-review" class="secondary" type="button">Im Review öffnen</button>
-                <button id="toggle-map-preview" class="secondary map-preview-toggle" type="button" aria-label="Textansicht ausblenden" title="Textansicht ausblenden">›</button>
+                <button id="toggle-map-preview" class="secondary map-preview-toggle" type="button" aria-label="Textansicht ausblenden" title="Textansicht ausblenden">‹</button>
               </div>
             </div>
             <article id="map-preview-content" class="highlighted-text"></article>
           </article>
           <div class="map-canvas-pane">
-            <button id="show-map-preview" class="secondary map-preview-show hidden" type="button" aria-label="Textansicht einblenden" title="Textansicht einblenden">‹</button>
+            <button id="show-map-preview" class="secondary map-preview-show hidden" type="button" aria-label="Textansicht einblenden" title="Textansicht einblenden">›</button>
             <div id="map-chart" aria-label="Interaktive Visualisierung geografischer Erwähnungen"></div>
             <p id="map-note" class="map-note">Flächen: aktuelle Länder. Die Farbskala ist logarithmisch.</p>
           </div>
@@ -428,7 +428,7 @@
       <div id="account-list" class="account-list"></div>
     </dialog>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-    <script src="./config.js?v=20260906-public-map"></script>
-    <script src="./app.js?v=20260906-public-map" type="module"></script>
+    <script src="./config.js?v=20260906-map-preview-fix"></script>
+    <script src="./app.js?v=20260906-map-preview-fix" type="module"></script>
   </body>
 </html>
