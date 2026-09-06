@@ -146,6 +146,7 @@ const elements = {
   authStatus: document.querySelector("#auth-status"),
   signUp: document.querySelector("#sign-up"),
   signOut: document.querySelector("#sign-out"),
+  backToMap: document.querySelector("#back-to-map"),
   signedInUser: document.querySelector("#signed-in-user"),
   manageAccounts: document.querySelector("#manage-accounts"),
   accountDialog: document.querySelector("#account-dialog"),
@@ -2328,6 +2329,8 @@ elements.signOut.addEventListener("click", async () => {
   if (!supabase) return;
   await supabase.auth.signOut();
 });
+
+elements.backToMap.addEventListener("click", () => showPublicMap().catch(showMapError));
 
 elements.mapLoginButton.addEventListener("click", async () => {
   if (state.profile?.approval_status === "approved") {
