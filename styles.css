@@ -933,7 +933,7 @@ body.sidebar-collapsed .sidebar-toggle {
   color: var(--muted);
 }
 
-.map-panel { display: flex; flex-direction: column; min-height: 100vh; background: #fffdf8; }
+.map-panel { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; background: #fffdf8; }
 .public-map-header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 1.05rem 1.35rem; border-bottom: 1px solid var(--line); background: #fff; }
 .public-map-header h1, .public-map-header .eyebrow { margin: 0; }
 .public-map-header h1 { font-size: clamp(1.15rem, 2.3vw, 1.8rem); }
@@ -959,11 +959,12 @@ body.sidebar-collapsed .sidebar-toggle {
 .map-canvas-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: white; }
 #map-chart { flex: 1; min-height: 580px; }
 .map-note { margin: 0; padding: 0.45rem 0.8rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); }
-.map-text-preview { min-width: 0; overflow: auto; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; }
-.map-text-preview .highlighted-text { padding: .9rem; overflow: auto; white-space: pre-wrap; line-height: 1.6; }
-.map-preview-mention { border-radius: .18rem; padding: 0 .08rem; background: #f6d97c; }
-.map-preview-mention.accepted, .map-preview-mention.changed { background: #a8dfc0; }
+.map-text-preview { min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fff; }
+.map-text-preview .highlighted-text { min-height: 0; flex: 1; padding: .9rem; overflow: auto; white-space: pre-wrap; line-height: 1.6; }
+.map-preview-mention { border-radius: .18rem; padding: 0 .08rem; background: #a8dfc0; }
+.map-preview-mention.selected-map-entity { background: #c9a7eb; box-shadow: 0 0 0 1px #7950a5; }
 .map-preview-mention.rejected { background: #e4e7eb; text-decoration: line-through; }
+.map-preview-mention.rejected.selected-map-entity { background: #c9a7eb; }
 
 @media (max-width: 1100px) {
   body {
@@ -997,6 +998,7 @@ body.sidebar-collapsed .sidebar-toggle {
   }
 
   .map-layout, .map-panel.map-preview-open .map-layout { grid-template-columns: 1fr; overflow: visible; }
+  .map-panel { height: auto; overflow: visible; }
   .map-sidebar { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
   .map-documents { max-height: 16rem; }
   .map-text-preview { min-height: 18rem; border-right: 0; border-bottom: 1px solid var(--line); }

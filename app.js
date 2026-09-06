@@ -1267,6 +1267,7 @@ async function refreshMap() {
   const rows = unwrap(await requireClient().rpc("visualization_entity_totals", { view_name: state.mapView, ...mapFilters() }));
   state.mapRows = rows;
   state.selectedMapEntity = null;
+  if (!elements.mapTextPreview.classList.contains("hidden")) renderMapTextPreview();
   const label = state.mapView === "countries" ? "Land" : state.mapView === "regions" ? "Region" : "historische Entität";
   elements.mapSelectionTitle.textContent = `${label[0].toUpperCase()}${label.slice(1)} auswählen`;
   elements.mapSelectionSummary.textContent = "Ein Klick auf die Visualisierung zeigt hier die zugehörigen Lehrpläne.";
@@ -1350,6 +1351,7 @@ function renderHistoricalTreemap() {
 
 async function selectMapEntity(entity, entityType) {
   state.selectedMapEntity = { entity, entityType };
+  if (!elements.mapTextPreview.classList.contains("hidden")) renderMapTextPreview();
   elements.mapSelectionTitle.textContent = entity;
   elements.mapSelectionSummary.textContent = "Zugehörige Lehrpläne werden geladen …";
   elements.mapDocuments.replaceChildren();
@@ -2231,7 +2233,11 @@ function renderMapTextPreview() {
   for (const entity of entities) {
     if (entity.char_start < cursor) continue;
     html += escapeHtml(state.text.slice(cursor, entity.char_start));
-    html += `<mark class="map-preview-mention ${entity.status}" title="${escapeHtml(entity.canonical_entity)}">${escapeHtml(state.text.slice(entity.char_start, entity.char_end))}</mark>`;
+    const selectedOnMap = state.selectedMapEntity
+      && entity.canonical_entity === state.selectedMapEntity.entity
+      && (entity.entity_type === state.selectedMapEntity.entityType
+        || (state.selectedMapEntity.entityType === "region" && entity.entity_type === "continent"));
+    html += `<mark class="map-preview-mention ${entity.status}${selectedOnMap ? " selected-map-entity" : ""}" title="${escapeHtml(entity.canonical_entity)}">${escapeHtml(state.text.slice(entity.char_start, entity.char_end))}</mark>`;
     cursor = entity.char_end;
   }
   html += escapeHtml(state.text.slice(cursor));
@@ -2239,6 +2245,10 @@ function renderMapTextPreview() {
   elements.mapPreviewContent.innerHTML = html || "Kein manueller Text vorhanden.";
   elements.mapTextPreview.classList.remove("hidden");
   elements.mapPanel.classList.add("map-preview-open");
+  // The selected map entity is the reader's current question.  Bring its
+  // first occurrence into view without changing the editable review text.
+  elements.mapPreviewContent.querySelector(".selected-map-entity")
+    ?.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
 async function openMapDocument(documentId) {
