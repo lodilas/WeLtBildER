@@ -5,6 +5,7 @@ const entityTypes = [
   "country", "region", "continent", "substate", "historical_country",
   "historical_region", "city", "river", "mountain_range", "sea", "other_geographic",
 ];
+const mapInitialSummary = "Ein Klick auf die Visualisierung zeigt hier die zugehörigen Lehrpläne. Das Korpus umfasst aktuell 374 Lehrpläne der 16 Bundesländer für die Fachkomplexe Geographie/Erdkunde, Geschichte, Sozialkunde/Politik, gültig im Schuljahr 2023/2024. Dargestellt werden nur manuell geprüfte Entitäten.";
 
 const supabase = config.supabaseUrl && config.supabaseAnonKey
   ? createClient(config.supabaseUrl, config.supabaseAnonKey)
@@ -1300,7 +1301,7 @@ async function refreshMap() {
   if (!elements.mapTextPreview.classList.contains("hidden")) renderMapTextPreview();
   const label = state.mapView === "countries" ? "Land" : state.mapView === "regions" ? "Region" : "historische Entität";
   elements.mapSelectionTitle.textContent = `${label[0].toUpperCase()}${label.slice(1)} auswählen`;
-  elements.mapSelectionSummary.textContent = "Ein Klick auf die Visualisierung zeigt hier die zugehörigen Lehrpläne.";
+  elements.mapSelectionSummary.innerHTML = `${escapeHtml(mapInitialSummary)}<br><br>Copyright: Odila Schröder, 2026 - CC BY-SA 4.0`;
   elements.mapDocuments.replaceChildren();
   renderMapChart();
   const mapped = rows.filter((row) => mapMetadataFor(row)).length;
