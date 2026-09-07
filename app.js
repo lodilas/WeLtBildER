@@ -28,6 +28,7 @@ const state = {
   mapRows: [],
   mapView: "countries",
   selectedMapEntity: null,
+  activeView: "map",
   loginIntent: null,
   pendingMapDocumentId: null,
   selectedEntityId: null,
@@ -2233,7 +2234,17 @@ function updatePublicMapAccountControls() {
   }
 }
 
+function resizeMapVisualization() {
+  // Plotly observes browser-window resizing, but not a CSS grid change caused
+  // by opening the text preview. Resize after the layout has been painted so
+  // the complete treemap always fits its remaining map column.
+  requestAnimationFrame(() => {
+    window.Plotly?.Plots?.resize(elements.mapChart);
+  });
+}
+
 async function showPublicMap() {
+  state.activeView = "map";
   elements.authGate.classList.add("hidden");
   elements.appShell.classList.add("hidden");
   if (state.profile?.approval_status !== "approved") {
@@ -2245,9 +2256,11 @@ async function showPublicMap() {
   elements.mapPanel.classList.remove("hidden");
   updatePublicMapAccountControls();
   await refreshMap();
+  resizeMapVisualization();
 }
 
 async function showReviewApp() {
+  state.activeView = "review";
   elements.authGate.classList.add("hidden");
   elements.mapPanel.classList.add("hidden");
   elements.appShell.classList.remove("hidden");
@@ -2276,6 +2289,7 @@ function renderMapTextPreview() {
   elements.mapTextPreview.classList.remove("hidden");
   elements.mapPanel.classList.add("map-preview-open");
   elements.showMapPreview.classList.add("hidden");
+  resizeMapVisualization();
   // The selected map entity is the reader's current question.  Bring its
   // first occurrence into view without changing the editable review text.
   elements.mapPreviewContent.querySelector(".selected-map-entity")
@@ -2294,6 +2308,7 @@ function hideMapTextPreview() {
   elements.mapTextPreview.classList.add("hidden");
   elements.mapPanel.classList.remove("map-preview-open");
   elements.showMapPreview.classList.remove("hidden");
+  resizeMapVisualization();
 }
 
 async function openMapDocument(documentId) {
@@ -2327,6 +2342,7 @@ async function showAuthenticatedApp(session) {
       if (documentId) await openMapDocument(documentId);
       return;
     }
+    state.loginIntent = null;
     await showReviewApp();
   } catch (error) {
     console.error(error);
@@ -2421,7 +2437,17 @@ if (!supabase) {
   await showPublicMap();
   supabase.auth.onAuthStateChange((event, nextSession) => {
     if (event === "INITIAL_SESSION") return;
-    if (nextSession) showAuthenticatedApp(nextSession);
+    if (nextSession) {
+      // Supabase can emit SIGNED_IN or TOKEN_REFRESHED when a tab regains
+      // focus. Those events refresh authentication, not the user's chosen
+      // screen, so keep the last map/review view intact.
+      if (state.profile?.approval_status === "approved" && !state.loginIntent) {
+        state.profile.email = nextSession.user.email || state.profile.email;
+        updatePublicMapAccountControls();
+        return;
+      }
+      showAuthenticatedApp(nextSession);
+    }
     else {
       state.profile = null;
       state.loginIntent = null;
