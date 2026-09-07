@@ -1288,8 +1288,8 @@ async function refreshMap() {
   renderMapChart();
   const mapped = rows.filter((row) => mapMetadataFor(row)).length;
   elements.mapStatus.textContent = state.mapView === "historical"
-    ? `${rows.length} historische Entitäten`
-    : `${rows.length} Entitäten · ${mapped} kartiert`;
+    ? `${rows.length} bestätigte historische Entitäten`
+    : `${rows.length} bestätigte Entitäten · ${mapped} kartiert`;
 }
 
 function renderMapChart() {
