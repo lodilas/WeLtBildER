@@ -923,20 +923,37 @@ function previewTextOffsetAtPoint(event) {
 }
 
 function markSearchInContainer(container, match) {
-  const start = positionInText(container, match.start);
-  const end = positionInText(container, match.end);
-  if (!start || !end) return;
-  const range = document.createRange();
-  range.setStart(start.node, start.offset);
-  range.setEnd(end.node, end.offset);
-  try {
+  // NER text already contains <mark> elements. A Range that crosses one of
+  // those elements cannot be surrounded as one DOM node, so mark each text
+  // fragment separately. This keeps both NER markup and text search intact.
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const fragments = [];
+  let node;
+  let offset = 0;
+  while ((node = walker.nextNode())) {
+    const end = offset + node.nodeValue.length;
+    if (end > match.start && offset < match.end) {
+      fragments.push({ node, start: Math.max(0, match.start - offset), end: Math.min(node.nodeValue.length, match.end - offset) });
+    }
+    offset = end;
+  }
+  const markers = [];
+  // Work backwards so splitting one text node cannot invalidate the offsets
+  // calculated for earlier nodes.
+  for (const fragment of [...fragments].reverse()) {
+    let target = fragment.node;
+    if (fragment.end < target.nodeValue.length) target.splitText(fragment.end);
+    if (fragment.start > 0) target = target.splitText(fragment.start);
     const marker = document.createElement("mark");
     marker.className = "search-hit current";
-    range.surroundContents(marker);
-    marker.scrollIntoView({ block: "center", behavior: "smooth" });
-  } catch {
-    (range.commonAncestorContainer.parentElement || container).scrollIntoView({ block: "center", behavior: "smooth" });
+    target.parentNode.replaceChild(marker, target);
+    marker.append(target);
+    markers.unshift(marker);
   }
+  const first = markers[0];
+  if (!first) return;
+  first.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  scrollWithin(container, first, "center", "smooth");
 }
 
 function revealSearchResult(target) {
