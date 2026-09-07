@@ -50,7 +50,7 @@ as $$
     from entity_occurrences as occurrence
     join documents as document on document.id = occurrence.document_id
     where occurrence.text_version_id = document.current_text_version_id
-      and occurrence.status = 'accepted'
+      and occurrence.status in ('accepted', 'changed')
       and (case view_name
         when 'countries' then occurrence.entity_type = 'country'
         when 'regions' then occurrence.entity_type in ('region', 'continent')
@@ -105,7 +105,7 @@ as $$
       document.validity_end as document_validity_end
     from entity_occurrences as occurrence join documents as document on document.id = occurrence.document_id
     where occurrence.text_version_id = document.current_text_version_id
-      and occurrence.status = 'accepted' and occurrence.canonical_entity = selected_entity
+      and occurrence.status in ('accepted', 'changed') and occurrence.canonical_entity = selected_entity
       and (case when occurrence.entity_type = 'continent' then 'region' else occurrence.entity_type end) = selected_entity_type
       and (case view_name when 'countries' then occurrence.entity_type = 'country'
         when 'regions' then occurrence.entity_type in ('region', 'continent')
