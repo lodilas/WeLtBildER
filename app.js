@@ -1,6 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatMarkdown, markdownNerText } from "./markdown-view.js";
 
 const config = window.LEHRPLAN_REVIEW_CONFIG || {};
+document.querySelector('#markdown-preview-panel').addEventListener('toggle', (event) => {
+  if (!event.target.open) return;
+  const preview = document.querySelector('#markdown-preview');
+  preview.textContent = document.querySelector('#manual-editor').value;
+  if (state.textFormat === 'markdown') formatMarkdown(preview);
+});
 const entityTypes = [
   "country", "region", "continent", "substate", "historical_country",
   "historical_region", "city", "river", "mountain_range", "sea", "other_geographic",
@@ -501,7 +508,7 @@ async function updateCanonicalSuggestions() {
   renderCanonicalSuggestions();
 }
 
-function findLexiconMentions(text, lexicon, protectedSpans = []) {
+function findLexiconMentions(text, lexicon, protectedSpans = [], format = "plain") {
   const bySurface = new Map();
   lexicon.forEach((entry) => bySurface.set(normalizeLexiconSurface(entry.surface_form), entry));
   const surfaces = [...bySurface.values()]
@@ -517,7 +524,7 @@ function findLexiconMentions(text, lexicon, protectedSpans = []) {
       .map((surface) => escapeRegex(surface).replace(/\s+/gu, "\\s+"));
     if (!alternatives.length) continue;
     const pattern = new RegExp(`(?<![\\p{L}\\p{N}_])(${alternatives.join("|")})(?![\\p{L}\\p{N}_])`, "giu");
-    for (const match of text.matchAll(pattern)) {
+    for (const match of (format === "markdown" ? markdownNerText(text) : text).matchAll(pattern)) {
       const surface = match[0];
       const entry = bySurface.get(normalizeLexiconSurface(surface));
       if (!entry) continue;
@@ -671,7 +678,7 @@ async function runBrowserLexiconNer(documentId) {
   const client = requireClient();
   const userId = await awaitUserId();
   const versionId = await currentTextVersionId(documentId);
-  const textRow = unwrap(await client.from("text_versions").select("content").eq("id", versionId).single());
+  const textRow = unwrap(await client.from("text_versions").select("*").eq("id", versionId).single());
   const text = textRow.content;
   const existing = await loadActiveOccurrences(documentId, versionId);
   const invalid = existing.filter((entry) => text.slice(entry.char_start, entry.char_end) !== entry.surface_form);
@@ -689,7 +696,7 @@ async function runBrowserLexiconNer(documentId) {
     .filter((entry) => !staleIds.includes(entry.id) && text.slice(entry.char_start, entry.char_end) === entry.surface_form)
     .map((entry) => ({ char_start: entry.char_start, char_end: entry.char_end }));
   const lexicon = await loadConfirmedGeoLexicon();
-  const mentions = findLexiconMentions(text, lexicon, protectedSpans);
+  const mentions = findLexiconMentions(text, lexicon, protectedSpans, textRow.content_format);
   for (let start = 0; start < mentions.length; start += 250) {
     const rows = mentions.slice(start, start + 250).map((mention) => ({
       document_id: documentId,
@@ -781,7 +788,7 @@ async function apiJson(url, options = {}) {
     const previous = previousId ? unwrap(await client.from("text_versions").select("content").eq("id", previousId).single()) : null;
     if (previous?.content === payload.text) return { status: document.status, entity_offsets: { moved: 0, invalidated: 0 } };
     const userId = await awaitUserId();
-    const version = unwrap(await client.from("text_versions").insert({ document_id: document.id, version_kind: "manual", content: payload.text, parent_version_id: previousId, created_by: userId }).select("*").single());
+    const version = unwrap(await client.from("text_versions").insert({ document_id: document.id, version_kind: "manual", content: payload.text, ...(state.textFormat === "markdown" ? { content_format: "markdown" } : {}), parent_version_id: previousId, created_by: userId }).select("*").single());
     const offsets = previousId
       ? await copyReanchoredOccurrences(document.id, previousId, version.id, previous.content, payload.text, userId)
       : { unchanged: 0, moved: 0, invalidated: 0 };
@@ -994,7 +1001,8 @@ async function apiText(url) {
   const segments = new URL(url, window.location.origin).pathname.split("/").filter(Boolean).map(decodeURIComponent);
   if (segments[1] !== "text") throw new Error(`Nicht unterstützte Textanfrage: ${url}`);
   const versionId = await currentTextVersionId(segments[2]);
-  const row = unwrap(await requireClient().from("text_versions").select("content").eq("id", versionId).single());
+  const row = unwrap(await requireClient().from("text_versions").select("*").eq("id", versionId).single());
+  state.textFormat = row.content_format || "plain";
   return row.content;
 }
 
@@ -1616,6 +1624,8 @@ async function loadDocument(id) {
   elements.sectionSourceLink.href = source;
   elements.sectionPdf.src = source;
   elements.editor.value = state.text;
+  document.querySelector('#markdown-preview-panel').open = false;
+  document.querySelector('#markdown-preview-panel').classList.toggle('hidden', state.textFormat !== 'markdown');
   renderManualSearchPreview();
   elements.textStatus.textContent = state.current.status;
   fillMetadataForm();
@@ -1728,6 +1738,7 @@ function renderHighlights() {
   }
   html += escapeHtml(state.text.slice(cursor));
   elements.highlightedText.innerHTML = html || "Noch kein manueller Text geladen.";
+  if (state.textFormat === "markdown") formatMarkdown(elements.highlightedText);
   elements.highlightedText.querySelectorAll(".mention").forEach((node) => {
     node.addEventListener("click", () => selectEntity(Number(node.dataset.id)));
   });
@@ -1771,6 +1782,7 @@ function renderSectionText() {
     html += `<span class="${classes}"${dataId} title="${escapeHtml(label)}">${content}</span>`;
   }
   elements.sectionText.innerHTML = html || "Noch kein manueller Text geladen.";
+  if (state.textFormat === "markdown") formatMarkdown(elements.sectionText);
   elements.sectionText.querySelectorAll(".text-section").forEach((node) => {
     node.addEventListener("click", () => selectSection(Number(node.dataset.id)));
   });
@@ -2304,6 +2316,7 @@ function renderMapTextPreview() {
   html += escapeHtml(state.text.slice(cursor));
   elements.mapPreviewTitle.textContent = `${state.current.id} · ${state.current.title}`;
   elements.mapPreviewContent.innerHTML = html || "Kein manueller Text vorhanden.";
+  if (state.textFormat === "markdown") formatMarkdown(elements.mapPreviewContent);
   elements.mapTextPreview.classList.remove("hidden");
   elements.mapPanel.classList.add("map-preview-open");
   elements.showMapPreview.classList.add("hidden");

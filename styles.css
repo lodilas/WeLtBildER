@@ -1128,3 +1128,13 @@ body.sidebar-collapsed .app-shell {
 .account-actions select { min-width: 9rem; }
 .viewer-mode .workspace textarea[readonly] { background: #f4f4f2; color: var(--ink); cursor: default; }
 .viewer-mode button:disabled, .viewer-mode input:disabled, .viewer-mode select:disabled { cursor: not-allowed; opacity: 0.58; }
+:root { --markdown-border: #ccd5d8; }
+.markdown-view .md-syntax { display: none; }
+.markdown-view .md-line { white-space: pre-wrap; min-height: .5em; }
+.markdown-view .md-heading { font-weight: 700; margin: .8em 0 .4em; }
+.markdown-view .md-h1 { font-size: 1.4em; }
+.markdown-view .md-h2 { font-size: 1.2em; }
+.markdown-view .md-divider { border-bottom: 1px solid var(--markdown-border); }
+.markdown-view .md-table-row { display: flex; width: 100%; }
+.markdown-view .md-cell { flex: 1 1 0; min-width: 0; padding: .4em; border: 1px solid var(--markdown-border); overflow-wrap: anywhere; }
+#markdown-preview { max-height: 50vh; overflow: auto; }
