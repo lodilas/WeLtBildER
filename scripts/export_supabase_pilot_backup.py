@@ -33,6 +33,7 @@ TABLES: dict[str, str] = {
     "text_sections": "id.asc",
     "entity_occurrences": "id.asc",
     "review_actions": "id.asc",
+    "admin_notifications": "id.asc",
 }
 BUCKET = "curriculum-assets"
 PAGE_SIZE = 1000
