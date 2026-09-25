@@ -40,6 +40,26 @@ const {chromium} = require('playwright');
       if(markdownNerText(text).includes('Paris')) throw Error('Link target not masked');
       if(markdownNerText(text).length!==text.length) throw Error('Mask offset mismatch');
     });
-    console.log('PASS: 10 documents, selection offsets, annotations, inert HTML, URL masking');
+    await page.evaluate(() => {
+      const el = document.querySelector('#test');
+      const source = '# Überschrift\n\nText mit **Fettdruck**.\n| Land | Name |\n| --- | --- |\n| Frankreich | Paris |\n';
+      for (const [start, end] of [[2, 13], [0, source.length], [source.indexOf('Frankreich'), source.indexOf('Paris') + 5]]) {
+        el.replaceChildren(document.createTextNode(source.slice(0,start)));
+        const section=document.createElement('span');
+        section.className='text-section'; section.dataset.id='42';
+        section.textContent=source.slice(start,end);
+        el.append(section,document.createTextNode(source.slice(end)));
+        formatMarkdown(el);
+        if(el.textContent!==source) throw Error('Section source changed');
+        const pieces=[...el.querySelectorAll('.text-section')];
+        if(pieces.map(n=>n.textContent).join('')!==source.slice(start,end)) throw Error('Section highlight lost in heading/table');
+        for(const node of pieces) {
+          const range=document.createRange(); range.selectNodeContents(el); range.setEnd(node,0);
+          const at=range.toString().length;
+          if(at<start || at+node.textContent.length>end) throw Error('Section annotation moved');
+        }
+      }
+    });
+    console.log('PASS: 10 documents, selection offsets, full/partial heading and table sections, annotations, inert HTML, URL masking');
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -14,11 +14,21 @@ export function formatMarkdown(container) {
   function slice(start, end) {
     const fragment = document.createDocumentFragment();
     if (end <= start) return fragment;
-    const a = nodes.find(n => n.end > start);
-    const b = nodes.find(n => n.end >= end);
-    const range = document.createRange();
-    range.setStart(a.node, start - a.start); range.setEnd(b.node, end - b.start);
-    return range.cloneContents();
+    // Range.cloneContents drops an annotation when both endpoints lie inside
+    // its text node. Copy the ancestor chain explicitly so a heading/cell
+    // wholly within a section retains that section's highlight and ID.
+    for (const entry of nodes) {
+      if (entry.end <= start) continue;
+      if (entry.start >= end) break;
+      let piece = document.createTextNode(entry.node.data.slice(
+        Math.max(0, start - entry.start), Math.min(entry.node.length, end - entry.start)));
+      for (let ancestor = entry.node.parentNode; ancestor && ancestor !== container; ancestor = ancestor.parentNode) {
+        const wrapper = ancestor.cloneNode(false);
+        wrapper.append(piece); piece = wrapper;
+      }
+      fragment.append(piece);
+    }
+    return fragment;
   }
   function append(parent, start, end, tag = 'span', hidden = false) {
     const node = document.createElement(tag);

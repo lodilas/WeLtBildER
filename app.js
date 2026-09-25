@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { formatMarkdown, markdownNerText } from "./markdown-view.js";
+import { formatMarkdown, markdownNerText } from "./markdown-view.js?v=20260925-selection";
 
 const config = window.LEHRPLAN_REVIEW_CONFIG || {};
 document.querySelector('#markdown-preview-panel').addEventListener('toggle', (event) => {
@@ -1784,7 +1784,13 @@ function renderSectionText() {
   elements.sectionText.innerHTML = html || "Noch kein manueller Text geladen.";
   if (state.textFormat === "markdown") formatMarkdown(elements.sectionText);
   elements.sectionText.querySelectorAll(".text-section").forEach((node) => {
-    node.addEventListener("click", () => selectSection(Number(node.dataset.id)));
+    node.addEventListener("click", () => {
+      // A mouse drag ends with a click as well. Do not rerender and discard
+      // the user's selection when it crosses an existing section.
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) return;
+      if (node.dataset.id) selectSection(Number(node.dataset.id));
+    });
   });
   elements.sectionsSummary.textContent = `${state.sections.length} markierte Abschnitte`;
   renderSearchControls();
@@ -1793,7 +1799,7 @@ function renderSectionText() {
 function scrollToSectionEnd(sectionId) {
   const pieces = [...elements.sectionText.querySelectorAll(".text-section")]
     .filter((node) => String(node.dataset.id) === String(sectionId));
-  pieces.at(-1)?.scrollIntoView({ block: "end", behavior: "smooth" });
+  pieces.filter(node => node.getClientRects().length).at(-1)?.scrollIntoView({ block: "end", behavior: "smooth" });
 }
 
 function selectionOffsetsInNode(container) {
@@ -2114,7 +2120,8 @@ function captureSelectionAsSection() {
   elements.sectionType.value = "";
   fillSectionForm();
   renderSectionText();
-  elements.sectionText.querySelector(".pending-section")?.scrollIntoView({ block: "end", behavior: "smooth" });
+  [...elements.sectionText.querySelectorAll(".pending-section")]
+    .filter(node => node.getClientRects().length).at(-1)?.scrollIntoView({ block: "end", behavior: "smooth" });
 }
 
 async function saveSection(event) {
