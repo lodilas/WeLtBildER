@@ -17,8 +17,16 @@ export function formatMarkdown(container) {
     // Range.cloneContents drops an annotation when both endpoints lie inside
     // its text node. Copy the ancestor chain explicitly so a heading/cell
     // wholly within a section retains that section's highlight and ID.
-    for (const entry of nodes) {
-      if (entry.end <= start) continue;
+    // Find the first overlapping node in logarithmic time. Starting at zero
+    // for every Markdown fragment made section-heavy documents quadratic.
+    let low = 0, high = nodes.length;
+    while (low < high) {
+      const mid = (low + high) >>> 1;
+      if (nodes[mid].end <= start) low = mid + 1;
+      else high = mid;
+    }
+    for (let index = low; index < nodes.length; index++) {
+      const entry = nodes[index];
       if (entry.start >= end) break;
       let piece = document.createTextNode(entry.node.data.slice(
         Math.max(0, start - entry.start), Math.min(entry.node.length, end - entry.start)));
@@ -31,6 +39,7 @@ export function formatMarkdown(container) {
     return fragment;
   }
   function append(parent, start, end, tag = 'span', hidden = false) {
+    if (end <= start) return;
     const node = document.createElement(tag);
     if (hidden) node.className = 'md-syntax';
     node.append(slice(start, end)); parent.append(node);

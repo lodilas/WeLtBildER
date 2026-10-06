@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { formatMarkdown, markdownNerText } from "./markdown-view.js?v=20260925-selection";
+import { formatMarkdown, markdownNerText } from "./markdown-view.js?v=20261006-performance";
 
 const config = window.LEHRPLAN_REVIEW_CONFIG || {};
 document.querySelector('#markdown-preview-panel').addEventListener('toggle', (event) => {
@@ -1745,7 +1745,18 @@ function renderHighlights() {
   renderSearchControls();
 }
 
+let sectionRenderCache = null;
 function renderSectionText() {
+  const signature = JSON.stringify([state.textFormat, state.sections.map(s =>
+    [s.id, s.char_start, s.char_end, s.section_title, s.subjects]), state.pendingSectionSelection]);
+  if (sectionRenderCache?.text === state.text && sectionRenderCache.signature === signature) {
+    // Selecting an existing section only changes its colour, not its Markdown.
+    elements.sectionText.querySelectorAll('.text-section[data-id]').forEach(node => {
+      node.classList.toggle('selected', String(state.selectedSectionId) === node.dataset.id);
+    });
+    renderSearchControls();
+    return;
+  }
   const ranges = state.sections.map((section) => ({
     ...section,
     selected: section.id === state.selectedSectionId,
@@ -1763,12 +1774,21 @@ function renderSectionText() {
   const boundaries = [...new Set([0, state.text.length, ...ranges.flatMap((range) => [range.char_start, range.char_end])])]
     .filter((point) => point >= 0 && point <= state.text.length)
     .sort((a, b) => a - b);
+  const starts = new Map(), ends = new Map(), active = new Map();
+  ranges.forEach((range, index) => {
+    if (!starts.has(range.char_start)) starts.set(range.char_start, []);
+    if (!ends.has(range.char_end)) ends.set(range.char_end, []);
+    starts.get(range.char_start).push([index, range]);
+    ends.get(range.char_end).push(index);
+  });
   let html = "";
   for (let index = 0; index < boundaries.length - 1; index += 1) {
     const start = boundaries[index];
     const end = boundaries[index + 1];
     const content = escapeHtml(state.text.slice(start, end));
-    const hits = ranges.filter((range) => range.char_start <= start && range.char_end >= end);
+    (ends.get(start) || []).forEach(index => active.delete(index));
+    (starts.get(start) || []).forEach(([index, range]) => active.set(index, range));
+    const hits = [...active.entries()].sort((a, b) => a[0] - b[0]).map(([, range]) => range);
     if (!hits.length) {
       html += content;
       continue;
@@ -1793,6 +1813,7 @@ function renderSectionText() {
     });
   });
   elements.sectionsSummary.textContent = `${state.sections.length} markierte Abschnitte`;
+  sectionRenderCache = { text: state.text, signature };
   renderSearchControls();
 }
 
@@ -2158,7 +2179,9 @@ async function saveSection(event) {
   renderSectionText();
   renderSectionList();
   if (!section) scrollToSectionEnd(saved.id);
-  await loadDocuments();
+  // We already fetched the saved sections. Avoid one count-query triplet for
+  // every document in the corpus after each individual metadata edit.
+  syncCurrentDocumentSummary();
 }
 
 async function createWholeDocumentSection() {
