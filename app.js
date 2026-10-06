@@ -1483,7 +1483,7 @@ function renderDocuments() {
     button.className = `document-card${state.current?.id === doc.id ? " active" : ""}`;
     button.innerHTML = `
       ${documentHeadingHtml(doc)}
-      <span>${escapeHtml(doc.status)} · ${doc.section_count || 0} Abschnitte · ${doc.occurrence_count || 0} mentions · ${doc.pending_count || 0} offen</span>
+      <span>${doc.section_count || 0} Abschnitte · ${doc.occurrence_count || 0} Geo-Entitäten · ${doc.pending_count || 0} offen</span>
     `;
     button.addEventListener("click", () => {
       loadDocument(doc.id).catch((error) => {
