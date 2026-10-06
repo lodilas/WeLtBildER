@@ -1139,7 +1139,7 @@ function renderChoicePicker(element, options, selectedValues, multiple = true) {
     }
   });
   custom.append(customInput, customButton);
-  menu.append(custom);
+  if (element.dataset.allowCustom !== "false") menu.append(custom);
   button.addEventListener("click", () => menu.classList.toggle("hidden"));
   element.append(button, menu);
   updateButton();
