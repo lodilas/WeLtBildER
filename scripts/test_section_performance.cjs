@@ -54,6 +54,16 @@ const {chromium} = require('playwright');
       if(elements.sectionText.textContent!==state.text) throw Error('Overlapping sections changed text');
       const overlap=[...elements.sectionText.querySelectorAll('.text-section')].filter(n=>n.title==='A · B');
       if(overlap.map(n=>n.textContent).join('')!==state.text.slice(5,9)) throw Error('Overlapping section coverage changed');
+      // Current Edge/Chrome/Safari use a browser highlight for a pending range,
+      // while browsers without the API retain the HTML span fallback.
+      state.text='# Heading\\nText'; state.sections=[]; state.pendingSectionSelection={char_start:2,char_end:9,surface:'Heading'};
+      sectionRenderCache=null; renderSectionText();
+      if (typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function') {
+        if (!CSS.highlights.has('lehrplan-pending-section')) throw Error('Native pending highlight absent');
+        if (elements.sectionText.querySelector('.pending-section')) throw Error('Native highlight unnecessarily rebuilt Markdown');
+      }
+      supportsPendingSectionHighlight=()=>false; sectionRenderCache=null; renderSectionText();
+      if (!elements.sectionText.querySelector('.pending-section')) throw Error('Fallback pending highlight absent');
     `});
     console.log('PASS: offsets, annotations, selection cache, metadata cache, range invalidation');
   } finally {await browser.close();}

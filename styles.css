@@ -801,6 +801,13 @@ body.sidebar-collapsed .sidebar-toggle {
   outline-offset: 1px;
 }
 
+/* Edge paints a newly selected section without duplicating the complete
+   Markdown DOM. This is intentionally equivalent to the span fallback above. */
+::highlight(lehrplan-pending-section) {
+  background-color: rgba(61, 111, 184, 0.28);
+  color: inherit;
+}
+
 .entity-pane,
 .section-pane {
   border-left: 1px solid var(--line);

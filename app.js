@@ -1763,14 +1763,72 @@ function renderHighlights() {
 }
 
 let sectionRenderCache = null;
+const pendingSectionHighlightName = 'lehrplan-pending-section';
+
+function supportsPendingSectionHighlight() {
+  return typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function';
+}
+
+function sourceRangeInContainer(container, start, end) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  let startPoint = null;
+  let endPoint = null;
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const next = offset + node.nodeValue.length;
+    if (!startPoint && start >= offset && start <= next) startPoint = [node, start - offset];
+    if (end >= offset && end <= next) {
+      endPoint = [node, end - offset];
+      break;
+    }
+    offset = next;
+  }
+  if (!startPoint || !endPoint) return null;
+  const range = document.createRange();
+  range.setStart(...startPoint);
+  range.setEnd(...endPoint);
+  return range;
+}
+
+function updatePendingSectionHighlight() {
+  if (!supportsPendingSectionHighlight()) return null;
+  CSS.highlights.delete(pendingSectionHighlightName);
+  if (!state.pendingSectionSelection) return null;
+  const range = sourceRangeInContainer(
+    elements.sectionText,
+    state.pendingSectionSelection.char_start,
+    state.pendingSectionSelection.char_end,
+  );
+  if (!range) return null;
+  CSS.highlights.set(pendingSectionHighlightName, new Highlight(range));
+  return range;
+}
+
+function scrollPendingSectionIntoView(range = updatePendingSectionHighlight()) {
+  if (range) {
+    const box = range.getBoundingClientRect();
+    const containerBox = elements.sectionText.getBoundingClientRect();
+    elements.sectionText.scrollTop += box.bottom - containerBox.bottom + 18;
+    return;
+  }
+  // Fallback for browsers without the CSS Highlight API.
+  elements.sectionText.querySelectorAll('.pending-section').at(-1)
+    ?.scrollIntoView({ block: 'end', behavior: 'auto' });
+}
+
 function renderSectionText() {
   const signature = JSON.stringify([state.textFormat, state.sections.map(s =>
-    [s.id, s.char_start, s.char_end, s.section_title, s.subjects]), state.pendingSectionSelection]);
+    [s.id, s.char_start, s.char_end, s.section_title, s.subjects]),
+    // Edge can paint the temporary selection without rebuilding the Markdown
+    // document. Older browsers retain the span-based fallback below.
+    supportsPendingSectionHighlight() ? null : state.pendingSectionSelection]);
   if (sectionRenderCache?.text === state.text && sectionRenderCache.signature === signature) {
     // Selecting an existing section only changes its colour, not its Markdown.
     elements.sectionText.querySelectorAll('.text-section[data-id]').forEach(node => {
       node.classList.toggle('selected', String(state.selectedSectionId) === node.dataset.id);
     });
+    updatePendingSectionHighlight();
     renderSearchControls();
     return;
   }
@@ -1779,7 +1837,7 @@ function renderSectionText() {
     selected: section.id === state.selectedSectionId,
     pending: false,
   }));
-  if (state.pendingSectionSelection) {
+  if (state.pendingSectionSelection && !supportsPendingSectionHighlight()) {
     ranges.push({
       ...state.pendingSectionSelection,
       id: null,
@@ -1820,6 +1878,7 @@ function renderSectionText() {
   }
   elements.sectionText.innerHTML = html || "Noch kein manueller Text geladen.";
   if (state.textFormat === "markdown") formatMarkdown(elements.sectionText);
+  updatePendingSectionHighlight();
   elements.sectionText.querySelectorAll(".text-section").forEach((node) => {
     node.addEventListener("click", () => {
       // A mouse drag ends with a click as well. Do not rerender and discard
@@ -2161,8 +2220,7 @@ function captureSelectionAsSection() {
   elements.sectionType.value = "";
   fillSectionForm();
   renderSectionText();
-  [...elements.sectionText.querySelectorAll(".pending-section")]
-    .filter(node => node.getClientRects().length).at(-1)?.scrollIntoView({ block: "end", behavior: "smooth" });
+  scrollPendingSectionIntoView();
 }
 
 async function saveSection(event) {
