@@ -1138,3 +1138,12 @@ body.sidebar-collapsed .app-shell {
 .markdown-view .md-table-row { display: flex; width: 100%; }
 .markdown-view .md-cell { flex: 1 1 0; min-width: 0; padding: .4em; border: 1px solid var(--markdown-border); overflow-wrap: anywhere; }
 #markdown-preview { max-height: 50vh; overflow: auto; }
+#markdown-preview-panel { border: 1px solid var(--line); border-radius: 6px; background: white; min-width: 0; flex-shrink: 0; overflow: hidden; }
+#markdown-preview-panel > summary { display: flex; align-items: center; gap: .6rem; cursor: pointer; list-style: none; padding: .7rem .85rem; font-weight: 600; color: var(--ink); background: #f3f7f7; }
+#markdown-preview-panel > summary::-webkit-details-marker { display: none; }
+#markdown-preview-panel > summary::before { content: '▸'; }
+#markdown-preview-panel[open] > summary::before { content: '▾'; }
+#markdown-preview-panel[open] > summary { border-bottom: 1px solid var(--line); }
+.markdown-preview-hint { margin: .5rem .85rem; color: var(--muted); font-size: .78rem; }
+.map-document strong { display: block; font-size: .92rem; margin-bottom: .2rem; }
+.map-document .document-metadata { display: block; font-size: .78rem; color: var(--muted); line-height: 1.4; margin-bottom: .28rem; }

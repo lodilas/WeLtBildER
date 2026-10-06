@@ -1420,7 +1420,7 @@ async function selectMapEntity(entity, entityType) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "map-document";
-    button.innerHTML = `<strong>${escapeHtml(row.document_id)}</strong> · ${escapeHtml(row.title)}<small>${Number(row.mentions).toLocaleString("de-DE")} Nennungen · ${escapeHtml(arrayToUi(row.subject_complexes) || "kein Fachkomplex")}</small>`;
+    button.innerHTML = `${documentHeadingHtml(row)}<small>${Number(row.mentions).toLocaleString("de-DE")} Nennungen</small>`;
     button.addEventListener("click", () => openMapDocument(row.document_id).catch(showMapError));
     elements.mapDocuments.append(button);
   });
@@ -1435,6 +1435,19 @@ function resetMapFilters() {
 function showMapError(error) {
   console.error(error);
   elements.mapStatus.textContent = `Karte konnte nicht geladen werden: ${error.message || "Unbekannter Fehler"}`;
+}
+
+function documentHeadingHtml(doc) {
+  const display = value => Array.isArray(value) ? value.join('; ') : String(value ?? '');
+  const metadata = [
+    `ID ${doc.id || doc.document_id}`,
+    display(doc.federal_state),
+    display(doc.subjects) || display(doc.subject_complexes),
+    display(doc.school_types),
+    display(doc.grade_levels) ? `Klassen ${display(doc.grade_levels)}` : '',
+    doc.publication_year,
+  ].filter(Boolean).join(' · ');
+  return `<strong>${escapeHtml(doc.title)}</strong><span class="document-metadata">${escapeHtml(metadata)}</span>`;
 }
 
 function renderDocuments() {
@@ -1456,16 +1469,8 @@ function renderDocuments() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `document-card${state.current?.id === doc.id ? " active" : ""}`;
-    const metadata = [
-      doc.federal_state,
-      doc.subjects,
-      doc.school_types,
-      doc.grade_levels ? `Klassen ${doc.grade_levels}` : "",
-      doc.publication_year,
-    ].filter(Boolean).join(" · ");
     button.innerHTML = `
-      <strong>${escapeHtml(doc.id)} · ${escapeHtml(doc.title)}</strong>
-      ${metadata ? `<span class="document-metadata">${escapeHtml(metadata)}</span>` : ""}
+      ${documentHeadingHtml(doc)}
       <span>${escapeHtml(doc.status)} · ${doc.section_count || 0} Abschnitte · ${doc.occurrence_count || 0} mentions · ${doc.pending_count || 0} offen</span>
     `;
     button.addEventListener("click", () => {
