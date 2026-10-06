@@ -773,6 +773,9 @@ body.sidebar-collapsed .sidebar-toggle {
 }
 
 .section-text {
+  /* The scroll pane has its size assigned by the surrounding flex/grid.
+     Isolate its thousands of Markdown nodes from metadata focus/menu layout. */
+  contain: strict;
   background:
     linear-gradient(90deg, rgba(45, 111, 115, 0.03), transparent 28%),
     white;
@@ -955,6 +958,7 @@ body.sidebar-collapsed .sidebar-toggle {
 .map-documents { display: grid; gap: 0.45rem; max-height: 42vh; overflow: auto; }
 .map-document { border: 1px solid var(--line); border-radius: 6px; padding: 0.55rem; background: white; color: var(--ink); cursor: pointer; text-align: left; }
 .map-document:hover { border-color: var(--accent); background: #eaf4f2; }
+.map-document.active { background: #e1f1ed; border-color: var(--accent); color: #102b31; box-shadow: inset 3px 0 var(--accent); }
 .map-document small { display: block; margin-top: 0.2rem; color: var(--muted); }
 .map-canvas-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: white; }
 .map-canvas-pane { position: relative; }

@@ -1089,6 +1089,15 @@ function renderChoicePicker(element, options, selectedValues, multiple = true) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "choice-picker-button";
+  if (element.closest('#section-form')) {
+    button.addEventListener('mousedown', event => {
+      if (event.button !== 0) return;
+      // Native focus scrolls all ancestor containers while the long document
+      // still carries a selection. Focus the form without that scroll pass.
+      event.preventDefault();
+      button.focus({ preventScroll: true });
+    });
+  }
   const updateButton = () => {
     const values = pickerValues(element);
     button.textContent = values.length ? joinValues(values) : "auswählen";
@@ -1420,6 +1429,9 @@ async function selectMapEntity(entity, entityType) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "map-document";
+    button.dataset.documentId = row.document_id;
+    button.classList.toggle('active', String(state.current?.id) === String(row.document_id));
+    button.setAttribute('aria-pressed', String(String(state.current?.id) === String(row.document_id)));
     button.innerHTML = `${documentHeadingHtml(row)}<small>${Number(row.mentions).toLocaleString("de-DE")} Nennungen</small>`;
     button.addEventListener("click", () => openMapDocument(row.document_id).catch(showMapError));
     elements.mapDocuments.append(button);
@@ -2141,6 +2153,9 @@ function captureSelectionAsSection() {
     return;
   }
   state.pendingSectionSelection = offsets;
+  // The persistent coloured annotation now owns this selection. Release the
+  // browser's native range before rebuilding the text and focusing metadata.
+  window.getSelection()?.removeAllRanges();
   state.selectedSectionId = null;
   elements.sectionTitle.value = offsets.surface.slice(0, 90).replace(/\s+/g, " ");
   elements.sectionType.value = "";
@@ -2337,6 +2352,11 @@ async function showReviewApp() {
 
 function renderMapTextPreview() {
   if (!state.current) return;
+  elements.mapDocuments.querySelectorAll('[data-document-id]').forEach(button => {
+    const active = button.dataset.documentId === String(state.current.id);
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
   const entities = orderedDistinctEntities();
   let cursor = 0;
   let html = "";
